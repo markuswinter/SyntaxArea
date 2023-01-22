@@ -438,8 +438,8 @@ Inherits DesktopTextInputCanvas
 		Protected HasHorizontalScrollbar As Boolean = True
 	#tag EndProperty
 
-	#tag Property, Flags = &h0, Description = 54727565206966207468652063616E7661732073686F756C642068617665206120686F72697A6F6E74616C207363726F6C6C6261722E
-		HasVerticalScrollbar As Boolean = True
+	#tag Property, Flags = &h1, Description = 54727565206966207468652063616E7661732073686F756C642068617665206120686F72697A6F6E74616C207363726F6C6C6261722E
+		Protected HasVerticalScrollbar As Boolean = True
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 412064696374696F6E617279206D617070696E6720586F6A6F206F626A656374732077697468204F626A6563746976652D4320636C61737365732E204B6579203D206F626A6563742060507472602C2056616C7565203D20605765616B526566602E
@@ -454,7 +454,7 @@ Inherits DesktopTextInputCanvas
 		Protected NSNotificationCenter As Ptr
 	#tag EndProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 54686520707265666572726564207363726F6C6C6572207374796C652E
+	#tag ComputedProperty, Flags = &h1, Description = 54686520707265666572726564207363726F6C6C6572207374796C652E
 		#tag Getter
 			Get
 			  #If TargetMacOS
@@ -464,7 +464,7 @@ Inherits DesktopTextInputCanvas
 			  #EndIf
 			End Get
 		#tag EndGetter
-		Shared NSScrollerStyle As NSScrollerStyles
+		Protected Shared NSScrollerStyle As NSScrollerStyles
 	#tag EndComputedProperty
 
 	#tag Property, Flags = &h1, Description = 5468697320697320746865207265666572656E636520746F20746865204E535363726F6C6C5669657720737562636C61737320696E7374616E63652E
@@ -497,17 +497,17 @@ Inherits DesktopTextInputCanvas
 	#tag EndConstant
 
 
-	#tag Structure, Name = CGPoint, Flags = &h0
+	#tag Structure, Name = CGPoint, Flags = &h21
 		X As CGFloat
 		Y As CGFloat
 	#tag EndStructure
 
-	#tag Structure, Name = CGRect, Flags = &h0
+	#tag Structure, Name = CGRect, Flags = &h21
 		Origin As CGPoint
 		RectSize As CGSize
 	#tag EndStructure
 
-	#tag Structure, Name = CGSize, Flags = &h0
+	#tag Structure, Name = CGSize, Flags = &h21
 		Width As CGFloat
 		Height As CGFloat
 	#tag EndStructure
