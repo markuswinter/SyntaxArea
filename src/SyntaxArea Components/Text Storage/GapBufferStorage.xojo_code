@@ -1,6 +1,5 @@
 #tag Class
-Protected Class MemoryBlock32TextStorage
-Implements ITextStorage
+Protected Class GapBufferStorage
 	#tag Method, Flags = &h0, Description = 437265617465732061206E6577206D656D6F727920626C6F636B206C6172676520656E6F75676820746F2073746F7265206073697A656020636861726163746572732E
 		Sub Constructor(size As Integer)
 		  /// Creates a new memory block large enough to store `size` characters.
@@ -11,7 +10,7 @@ Implements ITextStorage
 	#tag EndMethod
 
 	#tag Method, Flags = &h0, Description = 436F707920606C656E6774686020636861726163746572732066726F6D206066726F6D6020626567696E6E696E67206174206066726F6D496E6465786020746F20746869732073746F72616765207374617274696E6720617420606C6F63616C496E646578602E
-		Sub Copy(from As ITextStorage, fromIndex As Integer, localIndex As Integer, length As Integer)
+		Sub Copy(from As GapBufferStorage, fromIndex As Integer, localIndex As Integer, length As Integer)
 		  /// Copy `length` characters from `from` beginning at `fromIndex` to this storage starting at `localIndex`.
 		  
 		  #If Not DebugBuild
@@ -29,17 +28,9 @@ Implements ITextStorage
 		    Return
 		  End If
 		  
-		  // Cast and check that `from` is actually another instance of MemoryBlock32TextStorage.
-		  Var src As MemoryBlock32TextStorage
-		  Try
-		    src = MemoryBlock32TextStorage(from)
-		  Catch e
-		    Raise New UnsupportedOperationException("MemoryBlock32TextStorage can only copy from another instance of MemoryBlock32TextStorage. It cannot copy from other types of ITextStorage.")
-		  End Try
-		  
 		  // Do the copy.
 		  mStorage.StringValue(localIndex, Min(length, mStorage.Size - localIndex)) = _
-		  src.mStorage.StringValue(fromIndex, Min(length, src.Size * BYTES_PER_CHAR - fromIndex))
+		  from.mStorage.StringValue(fromIndex, Min(length, from.Size * BYTES_PER_CHAR - fromIndex))
 		  
 		End Sub
 	#tag EndMethod
@@ -47,8 +38,6 @@ Implements ITextStorage
 	#tag Method, Flags = &h0, Description = 546865206E756D626572206F66206368617261637465727320696E2073746F726167652E
 		Function Size() As Integer
 		  /// The number of characters in storage.
-		  ///
-		  /// Part of the `ITextStorage` interface.
 		  
 		  Return mStorage.Size / BYTES_PER_CHAR
 		  
@@ -58,8 +47,6 @@ Implements ITextStorage
 	#tag Method, Flags = &h0, Description = 526573697A65207468652073746F7261676520746F206163636F6D6F64617465206076616C75656020636861726163746572732E
 		Sub Size(Assigns value As Integer)
 		  /// Resize the storage to accomodate `value` characters.
-		  ///
-		  /// Part of the `ITextStorage` interface.
 		  
 		  mStorage.Size = value * BYTES_PER_CHAR
 		  
@@ -70,8 +57,6 @@ Implements ITextStorage
 		Function StringValue(index As Integer, length As Integer) As String
 		  /// Returns a UTF-8 string of `length` characters beginning at `index`.
 		  /// Returns "" if `index` is invalid.
-		  ///
-		  /// Part of the ITextStorage interface.
 		  
 		  If length = 0 Then Return ""
 		  If index >= Size Or index < 0 Then Return ""

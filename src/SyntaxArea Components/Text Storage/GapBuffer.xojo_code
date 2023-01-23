@@ -1,9 +1,9 @@
 #tag Class
 Protected Class GapBuffer
+Implements ITextStorage
 	#tag Method, Flags = &h0, Description = 52657475726E7320746865206368617261637465722061742060696E646578602E20417373756D65732060696E646578602069732076616C69642E
 		Function CharacterAt(index As Integer) As String
-		  /// Returns the character at `index`.
-		  /// Assumes `index` is valid.
+		  /// Returns the character at `index`. Assumes `index` is valid.
 		  
 		  If index < GapStart Then
 		    // The index is before the gap.
@@ -15,8 +15,8 @@ Protected Class GapBuffer
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h1, Description = 4173736572747320746861742060696E646578602069732077697468696E207468652073746F7261676520626F756E64732E2052616973657320616E204F75744F66426F756E6473457863657074696F6E2069662069742069736E27742E
-		Protected Sub CheckBounds(index As Integer)
+	#tag Method, Flags = &h21, Description = 4173736572747320746861742060696E646578602069732077697468696E207468652073746F7261676520626F756E64732E2052616973657320616E204F75744F66426F756E6473457863657074696F6E2069662069742069736E27742E
+		Private Sub CheckBounds(index As Integer)
 		  /// Asserts that `index` is within the storage bounds. Raises an OutOfBoundsException if it isn't.
 		  
 		  If index < 0 Or index > Length Then
@@ -28,22 +28,21 @@ Protected Class GapBuffer
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 44656661756C7420636F6E7374727563746F722E
-		Sub Constructor(storageType As StorageTypes = StorageTypes.MemoryBlock32)
+	#tag Method, Flags = &h0, Description = 436F6E737472756374732061206E657720656D70747920676170206275666665722E
+		Sub Constructor()
 		  /// Constructs a new empty gap buffer. 
-		  /// You can optionally specify how the buffer will internally store text.
 		  
 		  // Create a new storage structure.
-		  mStorageType = storageType
-		  Storage = GetNewStorage(0)
 		  
+		  Storage = New GapBufferStorage(0)
 		  GapStart = 0
 		  GapEnd = 0
+		  
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h1, Description = 456E73757265732074686572652773206174206C6561737420606D696E52657175697265644C656E677468602073706163657320617661696C61626C6520696E20746865206761702E2052657A696573206053746F72616765602061732072657175697265642E
-		Protected Sub EnsureStorageSize(minRequiredLength As Integer)
+	#tag Method, Flags = &h21, Description = 456E73757265732074686572652773206174206C6561737420606D696E52657175697265644C656E677468602073706163657320617661696C61626C6520696E20746865206761702E2052657A696573206053746F72616765602061732072657175697265642E
+		Private Sub EnsureStorageSize(minRequiredLength As Integer)
 		  /// Ensures there's at least `minRequiredLength` spaces available in the gap. Rezies `Storage` as required.
 		  
 		  #If Not DebugBuild
@@ -51,17 +50,17 @@ Protected Class GapBuffer
 		    #Pragma DisableBoundsChecking
 		  #EndIf
 		  
-		  Var newBuffer As ITextStorage
+		  Var newBuffer As GapBufferStorage
 		  Var delta As Integer
 		  If GapLength < minRequiredLength Or GapLength < MIN_GAP_SIZE then
 		    // The gap is too small. Resize the storage.
 		    delta = Max(minRequiredLength, MAX_GAP_SIZE) - GapLength
-		    newBuffer = GetNewStorage(Storage.Size + delta)
+		    newBuffer = New GapBufferStorage(Storage.Size + delta)
 		    
 		  ElseIf GapLength > MAX_GAP_SIZE Then
 		    // The gap is too big.
 		    delta = Max(minRequiredLength, MIN_GAP_SIZE) - GapLength
-		    newBuffer = GetNewStorage(Storage.Size + delta)
+		    newBuffer = New GapBufferStorage(Storage.Size + delta)
 		    
 		  Else
 		    // No need to resize the storage buffer.
@@ -77,21 +76,6 @@ Protected Class GapBuffer
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h1, Description = 52657475726E732061206E657720746578742073746F72652E205468652074797065206F662073746F72652069732073706563696669656420627920606D53746F7261676554797065602E
-		Protected Function GetNewStorage(size As Integer) As ITextStorage
-		  /// Returns a new text store. The type of store is specified by `mStorageType`.
-		  
-		  Select Case mStorageType
-		  Case StorageTypes.MemoryBlock32
-		    Return New MemoryBlock32TextStorage(size)
-		    
-		  Else
-		    Raise New UnsupportedOperationException("Unknown text storage type.")
-		  End Select
-		  
-		End Function
-	#tag EndMethod
-
 	#tag Method, Flags = &h0, Description = 496E7365727473206073602061742060696E6465786020776974686F7574207265706C6163696E6720616E797468696E672E
 		Sub Insert(index As Integer, s As String)
 		  /// Inserts `s` at `index` without replacing anything.
@@ -101,8 +85,16 @@ Protected Class GapBuffer
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h1, Description = 4D6F766573207468652067617020746F206120646966666572656E7420706C6163652077697468696E207468652073746F72616765207374727563747572652E
-		Protected Sub PlaceGap(index As Integer)
+	#tag Method, Flags = &h0, Description = 546865206E756D626572206F66206368617261637465727320696E2073746F726167652E
+		Function Length() As Integer
+		  /// The number of characters in storage.
+		  
+		  Return Storage.Size - GapLength
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 4D6F766573207468652067617020746F206120646966666572656E7420706C6163652077697468696E207468652073746F72616765207374727563747572652E
+		Private Sub PlaceGap(index As Integer)
 		  /// Moves the gap to a different place within the storage structure.
 		  
 		  #If Not DebugBuild
@@ -113,7 +105,7 @@ Protected Class GapBuffer
 		  // If the index hasn't changed and there's a gap there's nothing to do.
 		  If index = GapStart And GapLength > 0 Then Return
 		  
-		  Var newBuffer As ITextStorage = Storage
+		  Var newBuffer As GapBufferStorage = Storage
 		  
 		  // Empty?
 		  If Storage.Size = 0 Then Return
@@ -146,7 +138,7 @@ Protected Class GapBuffer
 		  /// Returns True if successful or False if nothing was removed.
 		  
 		  // Sanity check.
-		  If index < 0 Or index > Self.Length or Self.Length = 0 Then Return False
+		  If index < 0 Or index > Self.Length Or Self.Length = 0 Then Return False
 		  
 		  Replace(index, length, "")
 		  
@@ -157,7 +149,10 @@ Protected Class GapBuffer
 
 	#tag Method, Flags = &h0, Description = 5265706C61636520606C656E67746860206368617261637465727320626567696E6E696E672061742060696E646578602077697468206073602E20496620606C656E677468203D203060207468656E206073602077696C6C20626520696E73657274656420776974686F7574207265706C6163696E6720616E797468696E672E
 		Sub Replace(index As Integer, length As Integer, s As String)
-		  /// Replace `length` characters beginning at `index` with `s`. If `length = 0` then `s` will be inserted without replacing anything.
+		  /// Replace `length` characters beginning at `index` with `s`. 
+		  /// If `length = 0` then `s` will be inserted without replacing anything.
+		  ///
+		  /// Part of the ITextStorage interface.
 		  
 		  // Sanity check.
 		  CheckBounds(index)
@@ -183,9 +178,35 @@ Protected Class GapBuffer
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 53657473207468652077686F6C652073746F7261676520746F206073602E
+		Sub StringValue(Assigns s As String)
+		  /// Sets the whole storage to `s`.
+		  ///
+		  /// Part of the ITextStorage interface.
+		  
+		  // Text without an encoding cannot be converted because it will cause 
+		  // a failure in `MemoryBlock32TextStorage.StringValue`.
+		  If s.Encoding = Nil Then
+		    Raise New UnsupportedOperationException("Cannot assign string value to text storage because it has no encoding.")
+		  End If
+		  
+		  // Use UTF-8.
+		  s = s.ConvertEncoding(Encodings.UTF8)
+		  
+		  // Set the text.
+		  Storage.Size = s.Length
+		  Storage.StringValue(0, s.Length) = s
+		  GapStart = s.Length / 2
+		  GapEnd = GapStart
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0, Description = 52657475726E73206120737472696E67206F6620606C656E67746860206368617261637465727320626567696E6E696E672061742060696E646578602E
-		Function StringAt(index As Integer, length As Integer) As String
+		Function StringValue(index As Integer, length As Integer) As String
 		  /// Returns a string of `length` characters beginning at `index`.
+		  ///
+		  /// Part of the ITextStorage interface.
 		  
 		  #If Not DebugBuild
 		    #Pragma DisableBackgroundTasks
@@ -209,34 +230,12 @@ Protected Class GapBuffer
 		  End If
 		  
 		  // The text is before and after the gap. Maximum effort.
-		  Var result As ITextStorage = GetNewStorage(length)
+		  Var result As GapBufferStorage = New GapBufferStorage(length)
 		  result.Copy(Storage, index, 0, GapStart - index)
 		  result.Copy(Storage, mGapEnd, GapStart - index, delta - GapStart)
 		  Return result.StringValue(0, result.Size)
 		  
 		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0, Description = 53657473207468652077686F6C652073746F7261676520746F206073602E
-		Sub StringValue(Assigns s As String)
-		  /// Sets the whole storage to `s`.
-		  
-		  // Text without an encoding cannot be converted because it will cause 
-		  // a failure in `MemoryBlock32TextStorage.StringValue`.
-		  If s.Encoding = Nil Then
-		    Raise New UnsupportedOperationException("Cannot assign string value to text storage because it has no encoding.")
-		  End If
-		  
-		  // Use UTF-8.
-		  s = s.ConvertEncoding(Encodings.UTF8)
-		  
-		  // Set the text.
-		  Storage.Size = s.Length
-		  Storage.StringValue(0, s.Length) = s
-		  GapStart = s.Length / 2
-		  GapEnd = GapStart
-		  
-		End Sub
 	#tag EndMethod
 
 
@@ -263,38 +262,25 @@ Protected Class GapBuffer
 		Private GapEnd As Integer
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 546865206C656E677468206F6620746865206761702E
+	#tag ComputedProperty, Flags = &h21, Description = 546865206C656E677468206F6620746865206761702E
 		#tag Getter
 			Get
 			  Return mGapEnd - GapStart
 			End Get
 		#tag EndGetter
-		GapLength As Integer
+		Private GapLength As Integer
 	#tag EndComputedProperty
 
-	#tag Property, Flags = &h0, Description = 54686520302D626173656420696E646578206F6620746865207374617274206F6620746865206761702E205468652067617020626567696E73206A757374206265666F7265207468652063686172616374657220746F20696E736572742E
-		GapStart As Integer = 0
+	#tag Property, Flags = &h21, Description = 54686520302D626173656420696E646578206F6620746865207374617274206F6620746865206761702E205468652067617020626567696E73206A757374206265666F7265207468652063686172616374657220746F20696E736572742E
+		Private GapStart As Integer = 0
 	#tag EndProperty
-
-	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F66206368617261637465727320696E2073746F726167652E
-		#tag Getter
-			Get
-			  Return Storage.Size - GapLength
-			End Get
-		#tag EndGetter
-		Length As Integer
-	#tag EndComputedProperty
 
 	#tag Property, Flags = &h21, Description = 4261636B732060476170456E64602E
 		Private mGapEnd As Integer
 	#tag EndProperty
 
-	#tag Property, Flags = &h21
-		Private mStorageType As StorageTypes = StorageTypes.Memoryblock32
-	#tag EndProperty
-
-	#tag Property, Flags = &h1, Description = 53746F726573207468652061637475616C20746578742E
-		Protected Storage As ITextStorage
+	#tag Property, Flags = &h21, Description = 53746F726573207468652061637475616C20746578742E
+		Private Storage As GapBufferStorage
 	#tag EndProperty
 
 
@@ -303,11 +289,6 @@ Protected Class GapBuffer
 
 	#tag Constant, Name = MIN_GAP_SIZE, Type = Double, Dynamic = False, Default = \"32", Scope = Private, Description = 546865206D696E696D756D2073697A65207468652067617020697320616C6C6F77656420746F2062652E
 	#tag EndConstant
-
-
-	#tag Enum, Name = StorageTypes, Type = Integer, Flags = &h0, Description = 5468652074797065206F662073746F72616765206D656368616E69736D20746F2075736520666F722074686520676170206275666665722E
-		MemoryBlock32
-	#tag EndEnum
 
 
 	#tag ViewBehavior
@@ -352,7 +333,15 @@ Protected Class GapBuffer
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="Storage"
+			Name="GapStart"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="GapLength"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""

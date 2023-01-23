@@ -62,97 +62,106 @@ End
 #tag WindowCode
 	#tag Event
 		Sub Opening()
-		  '#Pragma Warning "TODO: Finish timing"
-		  '
-		  '// Create a random 5000 character string.
-		  'Var tmp(5000) As String
-		  'For i As Integer = 0 To 4999
-		  'tmp(i) = Chr(System.Random.InRange(65, 122))
-		  'Next i
-		  'Var startString As String = String.FromArray(tmp, "")
-		  '
-		  'Const ITERATIONS = 50000
-		  'Var index As Integer
-		  '
-		  '// ================
-		  '// Xojo array
-		  '// ================
-		  'Var a() As String = startString.Split("")
-		  'Var xojoStart As Double = System.Microseconds
-		  '
-		  ''// Insert a random character sequentially to simulate typing.
-		  ''index = 0
-		  ''For i As Integer = 0 To 4999
-		  ''a.AddAt(index, RandomChar)
-		  ''index = index + 1
-		  ''Next i
-		  '
-		  ''// Get varying strings of length 5 from the storage.
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''Var idx As Integer = System.Random.InRange(0, 4900)
-		  ''Var s As String = String.FromArray(a).Middle(idx, 5)
-		  ''Next i
-		  '
-		  '// Replace random location 5 character strings with another random 5 character string.
-		  'For i As Integer = 1 To ITERATIONS
-		  'Var newString As String = RandomChar(5)
-		  'Var idx As Integer = System.Random.InRange(0, 4900)
-		  '
-		  'Next i
-		  '
-		  ''// Insert at random index.
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''a.AddAt(System.Random.InRange(0, a.LastIndex), RandomChar)
-		  ''Next i
-		  '
-		  ''// Insert at fixed index (zero).
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''a.AddAt(0, RandomChar)
-		  ''Next i
-		  'Var xojoTotal As Integer = (System.Microseconds - xojoStart) / 1000 // Nearest millisecond.
-		  '
-		  '// ================
-		  '// GapBuffer
-		  '// ================
-		  'Var gb As New GapBuffer
-		  'gb.StringValue = startString
-		  'Var gbStart As Double = System.Microseconds
-		  '
-		  ''// Insert a random character sequentially to simulate typing.
-		  ''index = 0
-		  ''For i As Integer = 0 To 4999
-		  ''gb.Insert(index, RandomChar)
-		  ''index = index + 1
-		  ''Next i
-		  '
-		  ''// Get varying strings of length 5 from the storage.
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''Var idx As Integer = System.Random.InRange(0, 4900)
-		  ''Var s As String = gb.StringAt(idx, 5)
-		  ''Next i
-		  '
-		  ''// Insert at random index.
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''gb.Insert(System.Random.InRange(0, 4999), RandomChar)
-		  ''Next i
-		  '
-		  ''// Insert at fixed index (zero).
-		  ''For i As Integer = 1 To ITERATIONS
-		  ''gb.Insert(0, RandomChar)
-		  ''Next i
-		  'Var gbTotal As Integer = (System.Microseconds - gbStart) / 1000 // Nearest millisecond.
-		  '
-		  'Break
+		  #Pragma Warning "TODO: Finish timing"
+		  
+		  // Create a random 5000 character string to store.
+		  Var tmp(5000) As String
+		  For i As Integer = 0 To 4999
+		    tmp(i) = Chr(System.Random.InRange(65, 122))
+		  Next i
+		  Var test As String = String.FromArray(tmp, "")
+		  
+		  Const ITERATIONS = 2000
+		  Var watch As New StopWatch
+		  
+		  // ===================
+		  // Array storage
+		  // ===================
+		  Var a As New ArrayStorage
+		  
+		  // 1. Fixed insertion at index 0.
+		  a.StringValue = test
+		  watch.Start
+		  For i As Integer = 1 To ITERATIONS
+		    a.Insert(0, RandomString)
+		  Next i
+		  watch.Stop
+		  Var aFixedInsertion As Integer = watch.ElapsedMilliseconds
+		  
+		  // 2. Replace random words.
+		  a.StringValue = test
+		  watch.Start
+		  For i As Integer = 1 To ITERATIONS
+		    a.Replace(System.Random.InRange(0, 1000), 5, RandomString(5))
+		  Next i
+		  watch.Stop
+		  Var aRandomReplace As Integer = watch.ElapsedMilliseconds
+		  
+		  // 3. Delete the last character repeatedly.
+		  a.StringValue = test
+		  watch.Start
+		  For i As Integer = ITERATIONS DownTo 1
+		    Call a.Remove(ITERATIONS, 1)
+		  Next i
+		  watch.Stop
+		  Var aRemoveLastChar As Integer = watch.ElapsedMilliseconds
+		  
+		  // ===================
+		  // Gap buffer storage
+		  // ===================
+		  Var gb As New GapBuffer
+		  
+		  // 1. Fixed insertion at index 0.
+		  gb.StringValue = test
+		  watch.Start
+		  For i As Integer = 1 To ITERATIONS
+		    gb.Insert(0, RandomString)
+		  Next i
+		  watch.Stop
+		  Var gbFixedInsertion As Integer = watch.ElapsedMilliseconds
+		  
+		  // 2. Replace random words.
+		  gb.StringValue = test
+		  watch.Start
+		  For i As Integer = 1 To ITERATIONS
+		    gb.Replace(System.Random.InRange(0, 1000), 5, RandomString(5))
+		  Next i
+		  watch.Stop
+		  Var gbRandomReplace As Integer = watch.ElapsedMilliseconds
+		  
+		  // 3. Delete the last character repeatedly.
+		  gb.StringValue = test
+		  watch.Start
+		  For i As Integer = ITERATIONS DownTo 1
+		    Call gb.Remove(ITERATIONS, 1)
+		  Next i
+		  watch.Stop
+		  Var gbRemoveLastChar As Integer = watch.ElapsedMilliseconds
+		  
+		  Break
 		  
 		End Sub
 	#tag EndEvent
 
 
-	#tag Method, Flags = &h0, Description = 52657475726E7320612072616E646F6D206368617261637465722E
-		Function RandomChar() As String
-		  /// Returns a random character.
+	#tag Method, Flags = &h0, Description = 52657475726E7320612072616E646F6D20737472696E67206F6620606C656E677468602E
+		Function RandomString(length As Integer = 1) As String
+		  /// Returns a random string of `length`.
 		  
-		  Return Chr(System.Random.InRange(48, 122)) // "Normal" ASCII characters.
+		  If length = 1 Then
+		    Return Chr(System.Random.InRange(48, 122))
+		    
+		  ElseIf length > 1 Then
+		    Var s() As String
+		    For i As Integer = 1 To length
+		      s.Add(Chr(System.Random.InRange(48, 122)))
+		    Next i
+		    
+		    Return String.FromArray(s, "")
+		    
+		  Else
+		    Raise New InvalidArgumentException("length must be > 1.")
+		  End If
 		  
 		End Function
 	#tag EndMethod
