@@ -30,7 +30,6 @@ Begin DesktopWindow WinTest
       BorderColor     =   &c4F4F4F00
       Enabled         =   True
       FontName        =   "System"
-      FontSize        =   12
       HasBottomBorder =   True
       HasLeftBorder   =   True
       HasRightBorder  =   True
@@ -50,6 +49,9 @@ Begin DesktopWindow WinTest
       TabIndex        =   0
       TabPanelIndex   =   0
       TabStop         =   True
+      TextColor       =   &cFFFFFF00
+      TextSize        =   12
+      Tooltip         =   ""
       Top             =   20
       Visible         =   True
       Width           =   960

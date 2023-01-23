@@ -3,13 +3,13 @@ Protected Class SyntaxArea
 Inherits NSScrollViewCanvas
 	#tag Event
 		Function FontSizeAtLocation(location As Integer) As Single
-		  /// Returns the current font size.
+		  /// Returns the current text size.
 		  ///
-		  /// The editor only supports a uniform font size for all tokens.
+		  /// The editor only supports a uniform text size for all tokens.
 		  
 		  #Pragma Unused location
 		  
-		  Return Self.FontSize
+		  Return mTextSize
 		  
 		End Function
 	#tag EndEvent
@@ -48,7 +48,7 @@ Inherits NSScrollViewCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h21, Description = 44726177732074686520656469746F72277320626F72646572732069662072657175697265642E20417373756D657320606760206973207468652063616E7661732720677261706869637320636F6E746578742E
-		Private Sub DrawBorders(g As Graphics)
+		Private Sub DrawCanvasBorders(g As Graphics)
 		  /// Draws the editor's borders if required. Assumes `g` is the canvas' graphics context.
 		  
 		  g.DrawingColor = mBorderColor
@@ -64,6 +64,17 @@ Inherits NSScrollViewCanvas
 		  If mHasRightBorder Then
 		    g.DrawLine(g.Width - 1, 0, g.Width - 1, g.Height)
 		  End If
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 496D6D6564696174656C7920696E76616C6964617465732074686520656E746972652063616E76617320616E6420726564726177732E
+		Sub Redraw()
+		  /// Immediately invalidates the entire canvas and redraws.
+		  
+		  NeedsFullRedraw = True
+		  
+		  Refresh(True)
+		  
 		End Sub
 	#tag EndMethod
 
@@ -88,7 +99,7 @@ Inherits NSScrollViewCanvas
 		  g.DrawingColor = BackgroundColor
 		  g.FillRectangle(0, 0, g.Width, g.Height)
 		  
-		  DrawBorders(g)
+		  DrawCanvasBorders(g)
 		  
 		  
 		End Sub
@@ -103,9 +114,11 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  #Pragma Warning "TODO: Update upon change"
+			  If mBackgroundColor = value Then Return
 			  
 			  mBackgroundColor = value
+			  
+			  Redraw
 			  
 			End Set
 		#tag EndSetter
@@ -120,9 +133,11 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  #Pragma Warning "TODO: Update upon change"
+			  If mBorderColor = value Then Return
 			  
 			  mBorderColor = value
+			  
+			  Redraw
 			  
 			End Set
 		#tag EndSetter
@@ -137,29 +152,15 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  #Pragma Warning "TODO: Update upon change"
+			  If mFontName = value Then Return
 			  
 			  mFontName = value
+			  
+			  Redraw
 			  
 			End Set
 		#tag EndSetter
 		FontName As String
-	#tag EndComputedProperty
-
-	#tag ComputedProperty, Flags = &h0, Description = 54686520666F6E742073697A652E
-		#tag Getter
-			Get
-			  Return mFontSize
-			End Get
-		#tag EndGetter
-		#tag Setter
-			Set
-			  #Pragma Warning "TODO: Update upon change"
-			  
-			  mFontSize = value
-			End Set
-		#tag EndSetter
-		FontSize As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C2068617665206120626F74746F6D20626F726465722E
@@ -172,8 +173,7 @@ Inherits NSScrollViewCanvas
 			Set
 			  mHasBottomBorder = value
 			  
-			  Refresh
-			  
+			  Redraw
 			End Set
 		#tag EndSetter
 		HasBottomBorder As Boolean
@@ -189,7 +189,7 @@ Inherits NSScrollViewCanvas
 			Set
 			  mHasLeftBorder = value
 			  
-			  Refresh
+			  Redraw
 			  
 			End Set
 		#tag EndSetter
@@ -206,7 +206,7 @@ Inherits NSScrollViewCanvas
 			Set
 			  mHasRightBorder = value
 			  
-			  Refresh
+			  Redraw
 			  
 			End Set
 		#tag EndSetter
@@ -223,7 +223,8 @@ Inherits NSScrollViewCanvas
 			Set
 			  mHasTopBorder = value
 			  
-			  Refresh
+			  Redraw
+			  
 			End Set
 		#tag EndSetter
 		HasTopBorder As Boolean
@@ -243,10 +244,6 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
 		Private mFontName As String
-	#tag EndProperty
-
-	#tag Property, Flags = &h21, Description = 54686520666F6E742073697A652E
-		Private mFontSize As Integer
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 49662054727565207468656E2074686520656469746F722077696C6C2068617665206120626F74746F6D20626F726465722E204261636B732060486173426F74746F6D426F72646572602E
@@ -269,6 +266,14 @@ Inherits NSScrollViewCanvas
 		Private mReadOnly As Boolean = False
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 5468652064656661756C7420636F6C6F757220746F2075736520666F7220746578742E204261636B73206054657874436F6C6F72602E
+		Private mTextColor As ColorGroup
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 54686520746578742073697A652E
+		Private mTextSize As Integer
+	#tag EndProperty
+
 	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C207265647261772065766572797468696E6720696E20746865206E65787420605061696E7460206576656E742E
 		NeedsFullRedraw As Boolean = True
 	#tag EndProperty
@@ -287,6 +292,45 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		ReadOnly As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 5468652064656661756C7420636F6C6F757220746F2075736520666F7220746578742E
+		#tag Getter
+			Get
+			  Return mTextColor
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If mTextColor = value Then Return
+			  
+			  mTextColor = value
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		TextColor As ColorGroup
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520746578742073697A652E
+		#tag Getter
+			Get
+			  Return mTextSize
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If mTextSize = value Then Return
+			  
+			  mTextSize = value
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		TextSize As Integer
 	#tag EndComputedProperty
 
 
@@ -500,7 +544,15 @@ Inherits NSScrollViewCanvas
 			EditorType="MultiLineEditor"
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="FontSize"
+			Name="TextColor"
+			Visible=true
+			Group="Appearance"
+			InitialValue=""
+			Type="ColorGroup"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TextSize"
 			Visible=true
 			Group="Appearance"
 			InitialValue="12"
