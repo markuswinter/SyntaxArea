@@ -60,5 +60,103 @@ End
 #tag EndDesktopWindow
 
 #tag WindowCode
+	#tag Event
+		Sub Opening()
+		  '#Pragma Warning "TODO: Finish timing"
+		  '
+		  '// Create a random 5000 character string.
+		  'Var tmp(5000) As String
+		  'For i As Integer = 0 To 4999
+		  'tmp(i) = Chr(System.Random.InRange(65, 122))
+		  'Next i
+		  'Var startString As String = String.FromArray(tmp, "")
+		  '
+		  'Const ITERATIONS = 50000
+		  'Var index As Integer
+		  '
+		  '// ================
+		  '// Xojo array
+		  '// ================
+		  'Var a() As String = startString.Split("")
+		  'Var xojoStart As Double = System.Microseconds
+		  '
+		  ''// Insert a random character sequentially to simulate typing.
+		  ''index = 0
+		  ''For i As Integer = 0 To 4999
+		  ''a.AddAt(index, RandomChar)
+		  ''index = index + 1
+		  ''Next i
+		  '
+		  ''// Get varying strings of length 5 from the storage.
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''Var idx As Integer = System.Random.InRange(0, 4900)
+		  ''Var s As String = String.FromArray(a).Middle(idx, 5)
+		  ''Next i
+		  '
+		  '// Replace random location 5 character strings with another random 5 character string.
+		  'For i As Integer = 1 To ITERATIONS
+		  'Var newString As String = RandomChar(5)
+		  'Var idx As Integer = System.Random.InRange(0, 4900)
+		  '
+		  'Next i
+		  '
+		  ''// Insert at random index.
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''a.AddAt(System.Random.InRange(0, a.LastIndex), RandomChar)
+		  ''Next i
+		  '
+		  ''// Insert at fixed index (zero).
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''a.AddAt(0, RandomChar)
+		  ''Next i
+		  'Var xojoTotal As Integer = (System.Microseconds - xojoStart) / 1000 // Nearest millisecond.
+		  '
+		  '// ================
+		  '// GapBuffer
+		  '// ================
+		  'Var gb As New GapBuffer
+		  'gb.StringValue = startString
+		  'Var gbStart As Double = System.Microseconds
+		  '
+		  ''// Insert a random character sequentially to simulate typing.
+		  ''index = 0
+		  ''For i As Integer = 0 To 4999
+		  ''gb.Insert(index, RandomChar)
+		  ''index = index + 1
+		  ''Next i
+		  '
+		  ''// Get varying strings of length 5 from the storage.
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''Var idx As Integer = System.Random.InRange(0, 4900)
+		  ''Var s As String = gb.StringAt(idx, 5)
+		  ''Next i
+		  '
+		  ''// Insert at random index.
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''gb.Insert(System.Random.InRange(0, 4999), RandomChar)
+		  ''Next i
+		  '
+		  ''// Insert at fixed index (zero).
+		  ''For i As Integer = 1 To ITERATIONS
+		  ''gb.Insert(0, RandomChar)
+		  ''Next i
+		  'Var gbTotal As Integer = (System.Microseconds - gbStart) / 1000 // Nearest millisecond.
+		  '
+		  'Break
+		  
+		End Sub
+	#tag EndEvent
+
+
+	#tag Method, Flags = &h0, Description = 52657475726E7320612072616E646F6D206368617261637465722E
+		Function RandomChar() As String
+		  /// Returns a random character.
+		  
+		  Return Chr(System.Random.InRange(48, 122)) // "Normal" ASCII characters.
+		  
+		End Function
+	#tag EndMethod
+
+
 #tag EndWindowCode
 
