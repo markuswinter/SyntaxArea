@@ -35,24 +35,6 @@ Protected Class GapBufferData
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 546865206E756D626572206F66206368617261637465727320696E2073746F726167652E
-		Function Size() As Integer
-		  /// The number of characters in storage.
-		  
-		  Return mStorage.Size / BYTES_PER_CHAR
-		  
-		End Function
-	#tag EndMethod
-
-	#tag Method, Flags = &h0, Description = 526573697A65207468652073746F7261676520746F206163636F6D6F64617465206076616C75656020636861726163746572732E
-		Sub Size(Assigns value As Integer)
-		  /// Resize the storage to accomodate `value` characters.
-		  
-		  mStorage.Size = value * BYTES_PER_CHAR
-		  
-		End Sub
-	#tag EndMethod
-
 	#tag Method, Flags = &h0, Description = 52657475726E732061205554462D3820737472696E67206F6620606C656E67746860206368617261637465727320626567696E6E696E672061742060696E646578602E2052657475726E732022222069662060696E6465786020697320696E76616C69642E
 		Function StringValue(index As Integer, length As Integer) As String
 		  /// Returns a UTF-8 string of `length` characters beginning at `index`.
@@ -116,6 +98,25 @@ Protected Class GapBufferData
 	#tag Property, Flags = &h21, Description = 546865206D656D6F727920626C6F636B20746861742061637475616C6C792073746F7265732074686520746578742E
 		Private mStorage As MemoryBlock
 	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h0
+		#tag Getter
+			Get
+			  /// The number of characters that can be stored.
+			  
+			  Return mStorage.Size / BYTES_PER_CHAR
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  /// Resize the storage to accomodate `value` characters.
+			  
+			  mStorage.Size = value * BYTES_PER_CHAR
+			  
+			End Set
+		#tag EndSetter
+		Size As Integer
+	#tag EndComputedProperty
 
 
 	#tag Constant, Name = BYTES_PER_CHAR, Type = Double, Dynamic = False, Default = \"4", Scope = Public, Description = 546865206E756D626572206F66206279746573207573656420746F2073746F72652065616368206368617261637465722E

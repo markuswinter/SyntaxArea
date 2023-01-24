@@ -102,6 +102,9 @@ Inherits NSScrollViewCanvas
 		  DrawCanvasBorders(g)
 		  
 		  
+		  
+		  
+		  
 		End Sub
 	#tag EndMethod
 
@@ -274,6 +277,10 @@ Inherits NSScrollViewCanvas
 		Private mTextSize As Integer
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 54686520656469746F72277320746578742073746F726167652064617461207374727563747572652E204261636B732074686520636F6D70757465642070726F706572747920605465787453746F72616765602E
+		Private mTextStorage As ITextStorage
+	#tag EndProperty
+
 	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C207265647261772065766572797468696E6720696E20746865206E65787420605061696E7460206576656E742E
 		NeedsFullRedraw As Boolean = True
 	#tag EndProperty
@@ -331,6 +338,26 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		TextSize As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h21, Description = 54686520656469746F72277320746578742073746F726167652064617461207374727563747572652E
+		#tag Getter
+			Get
+			  If mTextStorage = Nil Then
+			    mTextStorage = New GapBuffer
+			  End If
+			  
+			  Return mTextStorage
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mTextStorage = value
+			  
+			End Set
+		#tag EndSetter
+		Private TextStorage As ITextStorage
 	#tag EndComputedProperty
 
 

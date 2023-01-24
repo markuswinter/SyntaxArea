@@ -6,12 +6,6 @@ Protected Interface ITextStorage
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 436F6E737472756374732061206E657720656D70747920676170206275666665722E
-		Sub Constructor()
-		  
-		End Sub
-	#tag EndMethod
-
 	#tag Method, Flags = &h0, Description = 496E7365727473206073602061742060696E6465786020776974686F7574207265706C6163696E6720616E797468696E672E
 		Sub Insert(index As Integer, s As String)
 		  
