@@ -13,7 +13,6 @@ Folder=Text Storage;SyntaxArea Components/Text Storage;&h000000004FDCF7FF;&h0000
 Interface=ITextStorage;SyntaxArea Components/Text Storage/ITextStorage.xojo_code;&h00000000593ACFFF;&h000000004FDCF7FF;false
 Class=GapBuffer;SyntaxArea Components/Text Storage/GapBuffer.xojo_code;&h00000000273C2FFF;&h000000004FDCF7FF;false
 Class=GapBufferStorage;SyntaxArea Components/Text Storage/GapBufferStorage.xojo_code;&h0000000053B127FF;&h000000004FDCF7FF;false
-Class=ArrayStorage;SyntaxArea Components/Text Storage/ArrayStorage.xojo_code;&h0000000002BA97FF;&h000000004FDCF7FF;false
 Class=StopWatch;StopWatch.xojo_code;&h0000000060BE97FF;&h0000000000000000;false
 DefaultWindow=WinTest
 AppMenuBar=MainMenuBar
