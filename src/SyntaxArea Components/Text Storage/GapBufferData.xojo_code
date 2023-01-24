@@ -1,5 +1,5 @@
 #tag Class
-Protected Class GapBufferStorage
+Protected Class GapBufferData
 	#tag Method, Flags = &h0, Description = 437265617465732061206E6577206D656D6F727920626C6F636B206C6172676520656E6F75676820746F2073746F7265206073697A656020636861726163746572732E
 		Sub Constructor(size As Integer)
 		  /// Creates a new memory block large enough to store `size` characters.
@@ -10,7 +10,7 @@ Protected Class GapBufferStorage
 	#tag EndMethod
 
 	#tag Method, Flags = &h0, Description = 436F707920606C656E6774686020636861726163746572732066726F6D206066726F6D6020626567696E6E696E67206174206066726F6D496E6465786020746F20746869732073746F72616765207374617274696E6720617420606C6F63616C496E646578602E
-		Sub Copy(from As GapBufferStorage, fromIndex As Integer, localIndex As Integer, length As Integer)
+		Sub Copy(from As GapBufferData, fromIndex As Integer, localIndex As Integer, length As Integer)
 		  /// Copy `length` characters from `from` beginning at `fromIndex` to this storage starting at `localIndex`.
 		  
 		  #If Not DebugBuild
@@ -105,6 +105,14 @@ Protected Class GapBufferStorage
 	#tag EndMethod
 
 
+	#tag Note, Name = About
+		A thin wrapper around a MemoryBlock. Is responsible for actually storing the text in the `GapBuffer` class.
+		Uses 4 bytes to store each character for easy indexing (at the cost of increased memory usage).
+		
+		
+	#tag EndNote
+
+
 	#tag Property, Flags = &h21, Description = 546865206D656D6F727920626C6F636B20746861742061637475616C6C792073746F7265732074686520746578742E
 		Private mStorage As MemoryBlock
 	#tag EndProperty
@@ -152,14 +160,6 @@ Protected Class GapBufferStorage
 			Visible=true
 			Group="Position"
 			InitialValue="0"
-			Type="Integer"
-			EditorType=""
-		#tag EndViewProperty
-		#tag ViewProperty
-			Name="mStorage"
-			Visible=false
-			Group="Behavior"
-			InitialValue=""
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty

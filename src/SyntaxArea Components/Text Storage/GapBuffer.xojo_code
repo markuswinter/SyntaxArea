@@ -7,9 +7,9 @@ Implements ITextStorage
 		  
 		  If index < GapStart Then
 		    // The index is before the gap.
-		    Return Storage.StringValue(index, 1)
+		    Return mData.StringValue(index, 1)
 		  Else
-		    Return Storage.StringValue(index + GapLength, 1)
+		    Return mData.StringValue(index + GapLength, 1)
 		  End If
 		  
 		End Function
@@ -34,7 +34,7 @@ Implements ITextStorage
 		  
 		  // Create a new storage structure.
 		  
-		  Storage = New GapBufferStorage(0)
+		  mData = New GapBufferData(0)
 		  GapStart = 0
 		  GapEnd = 0
 		  
@@ -50,17 +50,17 @@ Implements ITextStorage
 		    #Pragma DisableBoundsChecking
 		  #EndIf
 		  
-		  Var newBuffer As GapBufferStorage
+		  Var newBuffer As GapBufferData
 		  Var delta As Integer
 		  If GapLength < minRequiredLength Or GapLength < MIN_GAP_SIZE then
 		    // The gap is too small. Resize the storage.
 		    delta = Max(minRequiredLength, MAX_GAP_SIZE) - GapLength
-		    newBuffer = New GapBufferStorage(Storage.Size + delta)
+		    newBuffer = New GapBufferData(mData.Size + delta)
 		    
 		  ElseIf GapLength > MAX_GAP_SIZE Then
 		    // The gap is too big.
 		    delta = Max(minRequiredLength, MIN_GAP_SIZE) - GapLength
-		    newBuffer = New GapBufferStorage(Storage.Size + delta)
+		    newBuffer = New GapBufferData(mData.Size + delta)
 		    
 		  Else
 		    // No need to resize the storage buffer.
@@ -68,9 +68,9 @@ Implements ITextStorage
 		  end if
 		  
 		  // Copy the contents of the current storage to the new buffer and update the gap end position.
-		  newBuffer.Copy(Storage, 0, 0, GapStart)
-		  newBuffer.Copy(Storage, mGapEnd, newbuffer.Size - (Storage.Size - mGapEnd), Storage.Size - mGapEnd)
-		  Storage = newBuffer
+		  newBuffer.Copy(mData, 0, 0, GapStart)
+		  newBuffer.Copy(mData, mGapEnd, newbuffer.Size - (mData.Size - mGapEnd), mData.Size - mGapEnd)
+		  mData = newBuffer
 		  GapEnd = mGapEnd + delta
 		  
 		End Sub
@@ -89,7 +89,7 @@ Implements ITextStorage
 		Function Length() As Integer
 		  /// The number of characters in storage.
 		  
-		  Return Storage.Size - GapLength
+		  Return mData.Size - GapLength
 		End Function
 	#tag EndMethod
 
@@ -105,15 +105,15 @@ Implements ITextStorage
 		  // If the index hasn't changed and there's a gap there's nothing to do.
 		  If index = GapStart And GapLength > 0 Then Return
 		  
-		  Var newBuffer As GapBufferStorage = Storage
+		  Var newBuffer As GapBufferData = mData
 		  
 		  // Empty?
-		  If Storage.Size = 0 Then Return
+		  If mData.Size = 0 Then Return
 		  
 		  // Moving before current gap?
 		  If index < gapStart Then
 		    Var count As Integer = GapStart - index // The number of items to move.
-		    newbuffer.StringValue(index + GapLength, count) = Storage.StringValue(index, count) // Move the items.
+		    newbuffer.StringValue(index + GapLength, count) = mData.StringValue(index, count) // Move the items.
 		    
 		    GapStart = GapStart - count
 		    GapEnd = mGapEnd - count
@@ -122,7 +122,7 @@ Implements ITextStorage
 		    // Moving after the current gap start?
 		    Var count As Integer = index - GapStart // The items to move.
 		    If count > 0 Then
-		      newbuffer.StringValue(GapStart, Count) = Storage.StringValue(mGapEnd, count) // Move the items.
+		      newbuffer.StringValue(GapStart, Count) = mData.StringValue(mGapEnd, count) // Move the items.
 		      
 		      GapStart = GapStart + count
 		      GapEnd = mGapEnd + count
@@ -172,7 +172,7 @@ Implements ITextStorage
 		  GapEnd = mGapEnd + length
 		  
 		  // Add the text.
-		  Storage.StringValue(index, sLength) = s
+		  mData.StringValue(index, sLength) = s
 		  GapStart = GapStart + sLength
 		  
 		End Sub
@@ -194,8 +194,8 @@ Implements ITextStorage
 		  s = s.ConvertEncoding(Encodings.UTF8)
 		  
 		  // Set the text.
-		  Storage.Size = s.Length
-		  Storage.StringValue(0, s.Length) = s
+		  mData.Size = s.Length
+		  mData.StringValue(0, s.Length) = s
 		  GapStart = s.Length / 2
 		  GapEnd = GapStart
 		  
@@ -221,22 +221,33 @@ Implements ITextStorage
 		  
 		  // Is all the text before the gap?
 		  If delta < GapStart Then
-		    Return Storage.StringValue(index, length)
+		    Return mData.StringValue(index, length)
 		  End If
 		  
 		  // Is all the text after the gap?
 		  If index > GapStart Then
-		    Return Storage.StringValue(index + GapLength, length)
+		    Return mData.StringValue(index + GapLength, length)
 		  End If
 		  
 		  // The text is before and after the gap. Maximum effort.
-		  Var result As GapBufferStorage = New GapBufferStorage(length)
-		  result.Copy(Storage, index, 0, GapStart - index)
-		  result.Copy(Storage, mGapEnd, GapStart - index, delta - GapStart)
+		  Var result As GapBufferData = New GapBufferData(length)
+		  result.Copy(mData, index, 0, GapStart - index)
+		  result.Copy(mData, mGapEnd, GapStart - index, delta - GapStart)
 		  Return result.StringValue(0, result.Size)
 		  
 		End Function
 	#tag EndMethod
+
+
+	#tag Note, Name = About
+		This text storage class utilises a "gap buffer" for efficient storage:
+		https://en.wikipedia.org/wiki/Gap_buffer
+		
+		It relies on a small helper class (`GapBufferData`) to store the actual text. `GapBufferData` is a thin
+		wrapper around a MemoryBlock.
+		
+		
+	#tag EndNote
 
 
 	#tag ComputedProperty, Flags = &h21
@@ -249,8 +260,8 @@ Implements ITextStorage
 		#tag Setter
 			Set
 			  // Clamp the gap end between 0 and the size of the storage.
-			  If value > Storage.Size Then
-			    mGapEnd = Storage.Size
+			  If value > mData.Size Then
+			    mGapEnd = mData.Size
 			  ElseIf value < 0 Then
 			    mGapEnd = 0
 			  Else
@@ -275,12 +286,12 @@ Implements ITextStorage
 		Private GapStart As Integer = 0
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 4261636B732060476170456E64602E
-		Private mGapEnd As Integer
+	#tag Property, Flags = &h21, Description = 53746F726573207468652061637475616C20746578742E
+		Private mData As GapBufferData
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 53746F726573207468652061637475616C20746578742E
-		Private Storage As GapBufferStorage
+	#tag Property, Flags = &h21, Description = 4261636B732060476170456E64602E
+		Private mGapEnd As Integer
 	#tag EndProperty
 
 
@@ -329,22 +340,6 @@ Implements ITextStorage
 			Visible=true
 			Group="Position"
 			InitialValue="0"
-			Type="Integer"
-			EditorType=""
-		#tag EndViewProperty
-		#tag ViewProperty
-			Name="GapStart"
-			Visible=false
-			Group="Behavior"
-			InitialValue="0"
-			Type="Integer"
-			EditorType=""
-		#tag EndViewProperty
-		#tag ViewProperty
-			Name="GapLength"
-			Visible=false
-			Group="Behavior"
-			InitialValue=""
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
