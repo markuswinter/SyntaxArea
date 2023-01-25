@@ -2,6 +2,29 @@
 Protected Class SyntaxArea
 Inherits NSScrollViewCanvas
 	#tag Event
+		Function DoCommand(command As String) As Boolean
+		  /// Handles `command`.
+		  ///
+		  /// `command` is a `TextInputCanvas` string constant telling us which command we need to handle.
+		  
+		  #Pragma Warning "TODO"
+		  
+		  // Are we still typing? Most of these commands are considered as "not typing" 
+		  // for the purposes of our undo engine.
+		  CurrentUndoID = System.Ticks
+		  Select Case command
+		  Case CmdInsertNewline, CmdInsertTab
+		    mLastKeyDownTicks = System.Ticks
+		  Else
+		    // Act as if we haven't pressed a key for ages.
+		    mLastKeyDownTicks = 0
+		  End Select
+		  
+		  
+		End Function
+	#tag EndEvent
+
+	#tag Event
 		Function FontSizeAtLocation(location As Integer) As Single
 		  /// Returns the current text size.
 		  ///
@@ -15,10 +38,32 @@ Inherits NSScrollViewCanvas
 	#tag EndEvent
 
 	#tag Event
+		Sub InsertText(text As String, range As TextRange)
+		  /// A single character is to be inserted.
+		  
+		  // Track that the user is typing.
+		  mLastKeyDownTicks = System.Ticks
+		  
+		  // It might seem a little pointless to redirect straight to a method but
+		  // later we wil need to do more here.
+		  InsertCharacter(text, range)
+		  
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Function IsEditable() As Boolean
 		  /// Returns False if the canvas is read-only or True if it's editable.
 		  
 		  Return Not mReadOnly
+		  
+		End Function
+	#tag EndEvent
+
+	#tag Event
+		Function KeyDown(key As String) As Boolean
+		  // Track that the user is typing.
+		  mLastKeyDownTicks = System.Ticks
 		  
 		End Function
 	#tag EndEvent
@@ -67,6 +112,33 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 496E736572747320612073696E676C6520636861726163746572206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D657320606368617260206973206F6E6C79206F6E65206368617261637465722E
+		Sub InsertCharacter(char As String, range As TextRange)
+		  /// Inserts a single character at the current caret position.
+		  /// Assumes `char` is only one character.
+		  
+		  // Update the current undo ID if needed.
+		  If Not Typing Or System.Ticks > UndoIDThreshold Then
+		    CurrentUndoID = System.Ticks
+		  End If
+		  
+		  If TargetMacOS And range <> Nil And Not TextSelected Then
+		    // The user has pressed and held down a character and has selected a special character from the 
+		    // popup to insert. Replace the character before the caret with `char`.
+		    #Pragma Warning "TODO: Handle range on macOS (special character popup)"
+		  Else
+		    If TextSelected Then
+		      // Replace the selection with `char`.
+		      #Pragma Warning "TODO: Replace selection with character"
+		    Else
+		      // Insert the character at the current caret position.
+		      #Pragma Warning "TODO: Insert character at caret position"
+		    End If
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0, Description = 496D6D6564696174656C7920696E76616C6964617465732074686520656E746972652063616E76617320616E6420726564726177732E
 		Sub Redraw()
 		  /// Immediately invalidates the entire canvas and redraws.
@@ -100,9 +172,6 @@ Inherits NSScrollViewCanvas
 		  g.FillRectangle(0, 0, g.Width, g.Height)
 		  
 		  DrawCanvasBorders(g)
-		  
-		  
-		  
 		  
 		  
 		End Sub
@@ -145,6 +214,22 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		BorderColor As ColorGroup
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865204944206F66207468652067726F7570206F6620756E646F20616374696F6E7320746861742061726520636F6E73696465726564206173206F6E6520226576656E742220666F722074686520707572706F736573206F6620756E646F2E
+		#tag Getter
+			Get
+			  Return mCurrentUndoID
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mCurrentUndoID = value
+			  
+			End Set
+		#tag EndSetter
+		CurrentUndoID As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
@@ -245,6 +330,10 @@ Inherits NSScrollViewCanvas
 		Private mBorderColor As ColorGroup
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F7220746865206043757272656E74556E646F49446020636F6D70757465642070726F70657274792E
+		Private mCurrentUndoID As Integer = 0
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
 		Private mFontName As String
 	#tag EndProperty
@@ -263,6 +352,10 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 49662054727565207468656E2074686520656469746F722077696C6C2068617665206120746F7020626F726465722E204261636B732060486173546F70426F72646572602E
 		Private mHasTopBorder As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 5468652074696D65206F6620746865206C61737420604B6579446F776E60206576656E742E205573656420746F2064657465726D696E65206966207468652075736572206973207374696C6C20747970696E672E
+		Private mLastKeyDownTicks As Double
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
@@ -321,6 +414,18 @@ Inherits NSScrollViewCanvas
 		TextColor As ColorGroup
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 5472756520696620746865726520697320616E7920746578742063757272656E746C792073656C65637465642E
+		#tag Getter
+			Get
+			  #Pragma Warning "TODO: Implement this once text selection has been implemented"
+			  
+			  Return False
+			  
+			End Get
+		#tag EndGetter
+		TextSelected As Boolean
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 54686520746578742073697A652E
 		#tag Getter
 			Get
@@ -359,6 +464,43 @@ Inherits NSScrollViewCanvas
 		#tag EndSetter
 		Private TextStorage As ITextStorage
 	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54727565206966207468652075736572206973207374696C6C2074686F7567687420746F20626520747970696E672E
+		#tag Getter
+			Get
+			  /// True if the user is still thought to be typing.
+			  ///
+			  /// We make this decision based on the time the last key was depressed
+			  /// and released as well as an acceptable interval between depressions.
+			  
+			  If System.Ticks - mLastKeyDownTicks > TYPING_SPEED_TICKS Then
+			    Return False
+			  End If
+			  
+			  Return True
+			  
+			End Get
+		#tag EndGetter
+		Typing As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h21, Description = 546865206E756D626572206F66207469636B73207468617420726570726573656E747320746865207374617274206F662061206E657720756E646F206576656E7420626C6F636B2E
+		#tag Getter
+			Get
+			  /// The number of ticks that represents the start of a new undo event block.
+			  
+			  Return mCurrentUndoID + (60 * UNDO_EVENT_BLOCK_SECONDS)
+			End Get
+		#tag EndGetter
+		Private UndoIDThreshold As Integer
+	#tag EndComputedProperty
+
+
+	#tag Constant, Name = TYPING_SPEED_TICKS, Type = Double, Dynamic = False, Default = \"20", Scope = Private, Description = 546865206E756D626572206F66207469636B73206265747765656E206B65797374726F6B657320746F207374696C6C20626520636F6E73696465726564206173206163746976656C7920747970696E672E
+	#tag EndConstant
+
+	#tag Constant, Name = UNDO_EVENT_BLOCK_SECONDS, Type = Double, Dynamic = False, Default = \"2", Scope = Private, Description = 546865206E756D626572206F66207365636F6E64732077697468696E20776869636820756E646F61626C6520616374696F6E732077696C6C2062652067726F7570656420746F67657468657220617320612073696E676C6520756E646F61626C6520616374696F6E2E
+	#tag EndConstant
 
 
 	#tag ViewBehavior
