@@ -20,6 +20,8 @@ Inherits NSScrollViewCanvas
 		    mLastKeyDownTicks = 0
 		  End Select
 		  
+		  // Return True to prevent the event from propagating.
+		  Return True
 		  
 		End Function
 	#tag EndEvent
@@ -82,6 +84,16 @@ Inherits NSScrollViewCanvas
 	#tag EndEvent
 
 
+	#tag Method, Flags = &h21, Description = 4368616E6765207468652063757272656E742073656C656374696F6E20746F20626567696E206174206073746172746020616E6420636F6E74696E756520666F7220606C656E6774686020636861726163746572732E204E65676174697665206C656E6774687320617265207065726D69747465642E
+		Private Sub ChangeSelection(start As Integer, length As Integer)
+		  /// Change the current selection to begin at `start` and continue for `length` characters.
+		  /// Negative lengths are permitted.
+		  
+		  #Pragma Warning "TODO"
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0
 		Sub Constructor()
 		  // Calling the overridden superclass constructor.
@@ -115,7 +127,8 @@ Inherits NSScrollViewCanvas
 	#tag Method, Flags = &h0, Description = 496E736572747320612073696E676C6520636861726163746572206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D657320606368617260206973206F6E6C79206F6E65206368617261637465722E
 		Sub InsertCharacter(char As String, range As TextRange)
 		  /// Inserts a single character at the current caret position.
-		  /// Assumes `char` is only one character.
+		  /// Assumes `char` is a single character 
+		  /// Assumes `char` is *not* a newline.
 		  
 		  // Update the current undo ID if needed.
 		  If Not Typing Or System.Ticks > UndoIDThreshold Then
@@ -132,7 +145,11 @@ Inherits NSScrollViewCanvas
 		      #Pragma Warning "TODO: Replace selection with character"
 		    Else
 		      // Insert the character at the current caret position.
-		      #Pragma Warning "TODO: Insert character at caret position"
+		      TextStorage.Insert(mSelectionStart, char)
+		      // Move the caret forwards.
+		      mSelectionStart = mSelectionStart + 1
+		      // Update the lines.
+		      Lines.Replace(mSelectionStart, 0, char)
 		    End If
 		  End If
 		  
@@ -322,6 +339,26 @@ Inherits NSScrollViewCanvas
 		Private InvalidLines As Dictionary
 	#tag EndProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 54686520656469746F722773206C696E65206D616E616765722E
+		#tag Getter
+			Get
+			  If mLines = Nil Then
+			    mLines = New LineManager(mTextStorage)
+			  End If
+			  
+			  Return mLines
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mLines = value
+			  
+			End Set
+		#tag EndSetter
+		Lines As LineManager
+	#tag EndComputedProperty
+
 	#tag Property, Flags = &h21, Description = 54686520656469746F722773206261636B67726F756E6420636F6C6F75722E204261636B7320604261636B67726F756E64436F6C6F72602E
 		Private mBackgroundColor As ColorGroup
 	#tag EndProperty
@@ -358,8 +395,20 @@ Inherits NSScrollViewCanvas
 		Private mLastKeyDownTicks As Double
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 54686520656469746F722773206C696E65206D616E616765722E204261636B732074686520604C696E65736020636F6D70757465642070726F70657274792E
+		Private mLines As LineManager
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
 		Private mReadOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865206E756D626572206F6620636861726163746572732063757272656E746C792073656C65637465642E
+		Private mSelectionLength As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865206162736F6C75746520302D626173656420706F736974696F6E20696E207468652074657874206F66207468652063617265742E204261636B7320746865206053656C656374696F6E53746172746020636F6D70757465642070726F70657274792E
+		Private mSelectionStart As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 5468652064656661756C7420636F6C6F757220746F2075736520666F7220746578742E204261636B73206054657874436F6C6F72602E
@@ -394,6 +443,40 @@ Inherits NSScrollViewCanvas
 		ReadOnly As Boolean
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636861726163746572732063757272656E746C792073656C65637465642E
+		#tag Getter
+			Get
+			  Return mSelectionLength
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  ChangeSelection(mSelectionStart, value)
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		SelectionLength As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C75746520302D626173656420706F736974696F6E20696E207468652074657874206F66207468652063617265742E
+		#tag Getter
+			Get
+			  Return mSelectionStart
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  ChangeSelection(value, 0)
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		SelectionStart As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 5468652064656661756C7420636F6C6F757220746F2075736520666F7220746578742E
 		#tag Getter
 			Get
@@ -417,9 +500,7 @@ Inherits NSScrollViewCanvas
 	#tag ComputedProperty, Flags = &h0, Description = 5472756520696620746865726520697320616E7920746578742063757272656E746C792073656C65637465642E
 		#tag Getter
 			Get
-			  #Pragma Warning "TODO: Implement this once text selection has been implemented"
-			  
-			  Return False
+			  Return SelectionLength > 0
 			  
 			End Get
 		#tag EndGetter
@@ -742,6 +823,46 @@ Inherits NSScrollViewCanvas
 			Group="Behavior"
 			InitialValue="True"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CurrentUndoID"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="TextSelected"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Typing"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SelectionStart"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SelectionLength"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
