@@ -146,10 +146,10 @@ Inherits NSScrollViewCanvas
 		    Else
 		      // Insert the character at the current caret position.
 		      TextStorage.Insert(mSelectionStart, char)
-		      // Move the caret forwards.
-		      mSelectionStart = mSelectionStart + 1
 		      // Update the lines.
 		      Lines.Replace(mSelectionStart, 0, char)
+		      // Move the caret forwards.
+		      mSelectionStart = mSelectionStart + 1
 		    End If
 		  End If
 		  
