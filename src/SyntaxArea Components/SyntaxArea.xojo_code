@@ -91,6 +91,30 @@ Inherits NSScrollViewCanvas
 		  
 		  #Pragma Warning "TODO"
 		  
+		  // Nothing to do?
+		  If start = SelectionStart And length = SelectionLength Then Return
+		  
+		  // If backwards selection then adjust length.
+		  If length < 0 Then
+		    length = -length
+		    start = start - length
+		  End If
+		  
+		  // Clamp `start` and `length`.
+		  If start < 0 Then
+		    start = 0
+		  ElseIf start > TextStorage.Length Then
+		    start = TextStorage.Length
+		  End If
+		  If start + length > TextStorage.Length Then
+		    length = length - TextStorage.Length
+		  End If
+		  
+		  // Find the line the selection will start on.
+		  Var lineNumber As Integer = mLines.LineNumberForOffset(start)
+		  Var line As TextLine = mLines.LineAt(lineNumber)
+		  
+		  
 		End Sub
 	#tag EndMethod
 
@@ -124,6 +148,15 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h21
+		Private Sub Highlight()
+		  /// Creates (if necessary) a new syntax highlighter thread and runs it.
+		  
+		  #Pragma Warning "TODO"
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0, Description = 496E736572747320612073696E676C6520636861726163746572206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D657320606368617260206973206F6E6C79206F6E65206368617261637465722E
 		Sub InsertCharacter(char As String, range As TextRange)
 		  /// Inserts a single character at the current caret position.
@@ -153,6 +186,7 @@ Inherits NSScrollViewCanvas
 		    End If
 		  End If
 		  
+		  Highlight
 		End Sub
 	#tag EndMethod
 

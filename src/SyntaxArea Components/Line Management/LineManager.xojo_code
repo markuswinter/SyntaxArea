@@ -34,8 +34,21 @@ Protected Class LineManager
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h21, Description = 52657475726E732074686520302D6261736564206C696E65206E756D62657220666F722074686520676976656E20302D626173656420606F66667365746020696E20606D53746F72616765602E
-		Private Function LineNumberForOffset(offset As Integer) As Integer
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206C696E6520617320302D62617365642060696E646578602E204D61792072657475726E204E696C2E
+		Function LineAt(index As Integer) As TextLine
+		  /// Returns the line as 0-based `index`. May return Nil.
+		  
+		  If index < 0 Or index >= Count Then
+		    Return Nil
+		  Else
+		    Return mLines(index)
+		  End If
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E732074686520302D6261736564206C696E65206E756D62657220666F722074686520676976656E20302D626173656420606F66667365746020696E20606D53746F72616765602E
+		Function LineNumberForOffset(offset As Integer) As Integer
 		  /// Returns the 0-based line number for the given 0-based `offset` in `mStorage`.
 		  ///
 		  /// We'll use a binary search to the find the correct line.
@@ -109,6 +122,15 @@ Protected Class LineManager
 		End Sub
 	#tag EndMethod
 
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F66206C696E65732E
+		#tag Getter
+			Get
+			  Return mLines.Count
+			End Get
+		#tag EndGetter
+		Count As Integer
+	#tag EndComputedProperty
 
 	#tag Property, Flags = &h21, Description = 546865206C696E6573206265696E67206D616E616765642E
 		Private mLines() As TextLine
