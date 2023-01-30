@@ -7,8 +7,6 @@ Inherits NSScrollViewCanvas
 		  ///
 		  /// `command` is a `TextInputCanvas` string constant telling us which command we need to handle.
 		  
-		  #Pragma Warning "TODO"
-		  
 		  // Are we still typing? Most of these commands are considered as "not typing" 
 		  // for the purposes of our undo engine.
 		  CurrentUndoID = System.Ticks
@@ -18,6 +16,11 @@ Inherits NSScrollViewCanvas
 		  Else
 		    // Act as if we haven't pressed a key for ages.
 		    mLastKeyDownTicks = 0
+		  End Select
+		  
+		  Select Case command
+		  Case CmdInsertNewline
+		    InsertCharacter(EndOfLine.UNIX, Nil) // Standardise the newline to UNIX.
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
@@ -71,49 +74,67 @@ Inherits NSScrollViewCanvas
 	#tag EndEvent
 
 	#tag Event
+		Sub MouseDrag(x As Integer, y As Integer)
+		  /// The user is dragging the mouse in the editor.
+		  
+		  #Pragma Warning "TODO"
+		  #Pragma Unused x
+		  #Pragma Unused y
+		  
+		  // Mark that we're dragging
+		  mDragging = True
+		  
+		End Sub
+	#tag EndEvent
+
+	#tag Event
 		Sub Paint(g As Graphics, areas() As Xojo.Rect)
 		  #Pragma Unused areas
 		  
-		  If NeedsFullRedraw Then
-		    RedrawEverything(g)
-		  Else
-		    RedrawDirtyLines(g)
+		  // Editor background.
+		  g.DrawingColor = BackgroundColor
+		  g.FillRectangle(0, 0, g.Width, g.Height)
+		  
+		  // Draw the caret.
+		  If mCaretVisible Then
+		    PaintCaret(g)
 		  End If
+		  
+		  DrawCanvasBorders(g)
 		  
 		End Sub
 	#tag EndEvent
 
 
-	#tag Method, Flags = &h21, Description = 4368616E6765207468652063757272656E742073656C656374696F6E20746F20626567696E206174206073746172746020616E6420636F6E74696E756520666F7220606C656E6774686020636861726163746572732E204E65676174697665206C656E6774687320617265207065726D69747465642E
-		Private Sub ChangeSelection(start As Integer, length As Integer)
-		  /// Change the current selection to begin at `start` and continue for `length` characters.
-		  /// Negative lengths are permitted.
+	#tag Method, Flags = &h21, Description = 5365747320746865207669736962696C697479206F66207468652063617265742E2043616C6C6564206D7920606D4361726574426C696E6B657254696D65722E416374696F6E602E
+		Private Sub CaretBlinkerTimerAction(sender As Timer)
+		  /// Sets the visibility of the caret. Called my `mCaretBlinkerTimer.Action`.
+		  
+		  #Pragma Unused sender
+		  
+		  // The caret is hidden if there is selected text or the editor is read-only.
+		  If mSelectionLength > 0 Or Self.ReadOnly Then
+		    mCaretVisible = False
+		  Else
+		    If BlinkCaret Then
+		      mCaretVisible = Not mCaretVisible
+		    Else
+		      // Always keep the caret visible.
+		      mCaretVisible = True
+		    End If
+		  End If
+		  
+		  // Redraw the canvas.
+		  Redraw
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 4368616E6765207468652063757272656E742073656C656374696F6E20746F20626567696E206174206073656C53746172746020616E6420657874656E6420666F72206073656C4C656E6774686020636861726163746572732E
+		Private Sub ChangeSelection(selStart As Integer, selLength As Integer)
+		  /// Change the current selection to begin at `selStart` and extend for `selLength` characters.
 		  
 		  #Pragma Warning "TODO"
-		  
-		  // Nothing to do?
-		  If start = SelectionStart And length = SelectionLength Then Return
-		  
-		  // If backwards selection then adjust length.
-		  If length < 0 Then
-		    length = -length
-		    start = start - length
-		  End If
-		  
-		  // Clamp `start` and `length`.
-		  If start < 0 Then
-		    start = 0
-		  ElseIf start > TextStorage.Length Then
-		    start = TextStorage.Length
-		  End If
-		  If start + length > TextStorage.Length Then
-		    length = length - TextStorage.Length
-		  End If
-		  
-		  // Find the line the selection will start on.
-		  Var lineNumber As Integer = mLines.LineNumberForOffset(start)
-		  Var line As TextLine = mLines.LineAt(lineNumber)
-		  
 		  
 		End Sub
 	#tag EndMethod
@@ -123,8 +144,8 @@ Inherits NSScrollViewCanvas
 		  // Calling the overridden superclass constructor.
 		  Super.Constructor
 		  
-		  InvalidLines = New Dictionary
-		  
+		  mCaretBlinkerTimer = New Timer
+		  AddHandler mCaretBlinkerTimer.Action, AddressOf CaretBlinkerTimerAction
 		End Sub
 	#tag EndMethod
 
@@ -148,45 +169,44 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h21
-		Private Sub Highlight()
-		  /// Creates (if necessary) a new syntax highlighter thread and runs it.
+	#tag Method, Flags = &h21, Description = 496E736572747320612073696E676C652063686172616374657220606368617260206174207468652063757272656E7420636172657420706F736974696F6E2E
+		Private Sub InsertCharacter(char As String, range As TextRange)
+		  /// Inserts a single character `char` at the current caret position.
 		  
 		  #Pragma Warning "TODO"
 		  
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 496E736572747320612073696E676C6520636861726163746572206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D657320606368617260206973206F6E6C79206F6E65206368617261637465722E
-		Sub InsertCharacter(char As String, range As TextRange)
-		  /// Inserts a single character at the current caret position.
-		  /// Assumes `char` is a single character 
-		  /// Assumes `char` is *not* a newline.
+	#tag Method, Flags = &h21, Description = 5061696E74732074686520636172657420746F206067602061742074686520302D62617365642060706F73602E
+		Private Sub PaintCaret(g As Graphics)
+		  /// Paints the caret to `g`.
 		  
-		  // Update the current undo ID if needed.
-		  If Not Typing Or System.Ticks > UndoIDThreshold Then
-		    CurrentUndoID = System.Ticks
-		  End If
+		  // Whilst dragging, the CaretPosition may be temporarily inaccurate.
+		  // To prevent a hard crash caused by an OutOfBoundsError we will 
+		  // disable drawing the caret whilst dragging.
+		  If mDragging Then Return
 		  
-		  If TargetMacOS And range <> Nil And Not TextSelected Then
-		    // The user has pressed and held down a character and has selected a special character from the 
-		    // popup to insert. Replace the character before the caret with `char`.
-		    #Pragma Warning "TODO: Handle range on macOS (special character popup)"
-		  Else
-		    If TextSelected Then
-		      // Replace the selection with `char`.
-		      #Pragma Warning "TODO: Replace selection with character"
-		    Else
-		      // Insert the character at the current caret position.
-		      TextStorage.Insert(mSelectionStart, char)
-		      // Update the lines.
-		      Lines.Replace(mSelectionStart, 0, char)
-		      // Move the caret forwards.
-		      mSelectionStart = mSelectionStart + 1
-		    End If
-		  End If
+		  // Compute the x, y coordinates at the passed caret position.
+		  Var x, y As Double = 0
+		  XYAtCaretPos(mCaretPosition, x, y)
 		  
-		  Highlight
+		  // Adjust y to account for the vertical line padding.
+		  y = y + VerticalLinePadding
+		  
+		  // Draw it.
+		  g.DrawingColor = CaretColour
+		  Select Case CaretType
+		  Case CaretTypes.VerticalBar
+		    g.DrawLine(x, y, x, y + g.TextHeight)
+		    
+		  Case CaretTypes.Underscore
+		    g.DrawLine(x, y + g.TextHeight, x + g.TextWidth("_"), y + g.TextHeight)
+		    
+		  Case CaretTypes.Block
+		    PaintBlockCaret(g, x, y)
+		  End Select
+		  
 		End Sub
 	#tag EndMethod
 
@@ -197,33 +217,6 @@ Inherits NSScrollViewCanvas
 		  NeedsFullRedraw = True
 		  
 		  Refresh(True)
-		  
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h21, Description = 52656472617773206F6E6C79207468652076697369626C65206469727479206C696E6573206F6E746F207468652063616E7661732E20417373756D6573207468617420606760206973207468652063616E76617327206772617068696373206F626A6563742066726F6D20746865205061696E74206576656E742E
-		Private Sub RedrawDirtyLines(g As Graphics)
-		  /// Redraws only the visible dirty lines onto the canvas.
-		  /// Assumes that `g` is the canvas' graphics object from the Paint event.
-		  
-		  #Pragma Warning "TODO"
-		  
-		End Sub
-	#tag EndMethod
-
-	#tag Method, Flags = &h21, Description = 526564726177732074686520656E746972652063616E7661732E20417373756D6573207468617420606760206973207468652063616E76617327206772617068696373206F626A6563742066726F6D20746865205061696E74206576656E742E
-		Private Sub RedrawEverything(g As Graphics)
-		  /// Redraws the entire canvas.
-		  /// Assumes that `g` is the canvas' graphics object from the Paint event.
-		  
-		  #Pragma Warning "TODO"
-		  
-		  // Editor background.
-		  g.DrawingColor = BackgroundColor
-		  g.FillRectangle(0, 0, g.Width, g.Height)
-		  
-		  DrawCanvasBorders(g)
-		  
 		  
 		End Sub
 	#tag EndMethod
@@ -248,6 +241,10 @@ Inherits NSScrollViewCanvas
 		BackgroundColor As ColorGroup
 	#tag EndComputedProperty
 
+	#tag Property, Flags = &h0, Description = 54727565206966207468652063617265742073686F756C6420706572696F646963616C6C7920626C696E6B2E
+		BlinkCaret As Boolean = True
+	#tag EndProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 54686520656469746F72277320626F7264657220636F6C6F75722E
 		#tag Getter
 			Get
@@ -265,6 +262,16 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		BorderColor As ColorGroup
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C75746520302D626173656420636172657420706F736974696F6E2E
+		#tag Getter
+			Get
+			  Return mCaretPosition
+			  
+			End Get
+		#tag EndGetter
+		CaretPosition As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 546865204944206F66207468652067726F7570206F6620756E646F20616374696F6E7320746861742061726520636F6E73696465726564206173206F6E6520226576656E742220666F722074686520707572706F736573206F6620756E646F2E
@@ -369,27 +376,17 @@ Inherits NSScrollViewCanvas
 		HasTopBorder As Boolean
 	#tag EndComputedProperty
 
-	#tag Property, Flags = &h21, Description = 547261636B73207768696368206C696E65732061726520696E76616C696420616E64207265717569726520726564726177696E672E204B6579203D206C696E6520696E6465782C2056616C7565203D20426F6F6C65616E2E
-		Private InvalidLines As Dictionary
-	#tag EndProperty
-
-	#tag ComputedProperty, Flags = &h0, Description = 54686520656469746F722773206C696E65206D616E616765722E
+	#tag ComputedProperty, Flags = &h0
 		#tag Getter
 			Get
 			  If mLines = Nil Then
-			    mLines = New LineManager(mTextStorage)
+			    mLines = New LineManager(Self)
 			  End If
 			  
 			  Return mLines
 			  
 			End Get
 		#tag EndGetter
-		#tag Setter
-			Set
-			  mLines = value
-			  
-			End Set
-		#tag EndSetter
 		Lines As LineManager
 	#tag EndComputedProperty
 
@@ -401,8 +398,24 @@ Inherits NSScrollViewCanvas
 		Private mBorderColor As ColorGroup
 	#tag EndProperty
 
+	#tag Property, Flags = &h21
+		Private mCaretBlinkerTimer As Timer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865206F2D626173656420706F736974696F6E206F66207468652063617265742E2053657420746F20602D316020696620746865206361726574206973206E6F742076697369626C652E
+		Private mCaretPosition As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 54727565206966207468652063617265742068617320626C696E6B65642076697369626C652C2046616C7365206966206E6F742E
+		Private mCaretVisible As Boolean = False
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F7220746865206043757272656E74556E646F49446020636F6D70757465642070726F70657274792E
 		Private mCurrentUndoID As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 5472756520696620746865206D6F7573652069732063757272656E746C79206472616767696E672E
+		Private mDragging As Boolean = False
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
@@ -429,7 +442,7 @@ Inherits NSScrollViewCanvas
 		Private mLastKeyDownTicks As Double
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 54686520656469746F722773206C696E65206D616E616765722E204261636B732074686520604C696E65736020636F6D70757465642070726F70657274792E
+	#tag Property, Flags = &h21, Description = 5468697320656469746F722773206C696E65206D616E616765722E
 		Private mLines As LineManager
 	#tag EndProperty
 
@@ -451,10 +464,6 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 54686520746578742073697A652E
 		Private mTextSize As Integer
-	#tag EndProperty
-
-	#tag Property, Flags = &h21, Description = 54686520656469746F72277320746578742073746F726167652064617461207374727563747572652E204261636B732074686520636F6D70757465642070726F706572747920605465787453746F72616765602E
-		Private mTextStorage As ITextStorage
 	#tag EndProperty
 
 	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C207265647261772065766572797468696E6720696E20746865206E65787420605061696E7460206576656E742E
@@ -558,26 +567,6 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		TextSize As Integer
-	#tag EndComputedProperty
-
-	#tag ComputedProperty, Flags = &h21, Description = 54686520656469746F72277320746578742073746F726167652064617461207374727563747572652E
-		#tag Getter
-			Get
-			  If mTextStorage = Nil Then
-			    mTextStorage = New GapBuffer
-			  End If
-			  
-			  Return mTextStorage
-			  
-			End Get
-		#tag EndGetter
-		#tag Setter
-			Set
-			  mTextStorage = value
-			  
-			End Set
-		#tag EndSetter
-		Private TextStorage As ITextStorage
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 54727565206966207468652075736572206973207374696C6C2074686F7567687420746F20626520747970696E672E
@@ -897,6 +886,22 @@ Inherits NSScrollViewCanvas
 			Group="Behavior"
 			InitialValue=""
 			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretPosition"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="BlinkCaret"
+			Visible=false
+			Group="Behavior"
+			InitialValue="True"
+			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
