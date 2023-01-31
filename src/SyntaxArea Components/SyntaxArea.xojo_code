@@ -182,30 +182,7 @@ Inherits NSScrollViewCanvas
 		Private Sub PaintCaret(g As Graphics)
 		  /// Paints the caret to `g`.
 		  
-		  // Whilst dragging, the CaretPosition may be temporarily inaccurate.
-		  // To prevent a hard crash caused by an OutOfBoundsError we will 
-		  // disable drawing the caret whilst dragging.
-		  If mDragging Then Return
-		  
-		  // Compute the x, y coordinates at the passed caret position.
-		  Var x, y As Double = 0
-		  XYAtCaretPos(mCaretPosition, x, y)
-		  
-		  // Adjust y to account for the vertical line padding.
-		  y = y + VerticalLinePadding
-		  
-		  // Draw it.
-		  g.DrawingColor = CaretColour
-		  Select Case CaretType
-		  Case CaretTypes.VerticalBar
-		    g.DrawLine(x, y, x, y + g.TextHeight)
-		    
-		  Case CaretTypes.Underscore
-		    g.DrawLine(x, y + g.TextHeight, x + g.TextWidth("_"), y + g.TextHeight)
-		    
-		  Case CaretTypes.Block
-		    PaintBlockCaret(g, x, y)
-		  End Select
+		  #Pragma Warning "TODO"
 		  
 		End Sub
 	#tag EndMethod
@@ -466,6 +443,10 @@ Inherits NSScrollViewCanvas
 		Private mTextSize As Integer
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 5468652066756C6C2074657874206F662074686520646F63756D656E742E
+		Private mTextStorage As ITextStorage
+	#tag EndProperty
+
 	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C207265647261772065766572797468696E6720696E20746865206E65787420605061696E7460206576656E742E
 		NeedsFullRedraw As Boolean = True
 	#tag EndProperty
@@ -569,6 +550,20 @@ Inherits NSScrollViewCanvas
 		TextSize As Integer
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 5468652066756C6C207465787420696E2074686520646F63756D656E742E
+		#tag Getter
+			Get
+			  If mTextStorage = Nil Then
+			    mTextStorage = New GapBuffer
+			  End If
+			  
+			  Return mTextStorage
+			  
+			End Get
+		#tag EndGetter
+		TextStorage As ITextStorage
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 54727565206966207468652075736572206973207374696C6C2074686F7567687420746F20626520747970696E672E
 		#tag Getter
 			Get
@@ -605,6 +600,11 @@ Inherits NSScrollViewCanvas
 
 	#tag Constant, Name = UNDO_EVENT_BLOCK_SECONDS, Type = Double, Dynamic = False, Default = \"2", Scope = Private, Description = 546865206E756D626572206F66207365636F6E64732077697468696E20776869636820756E646F61626C6520616374696F6E732077696C6C2062652067726F7570656420746F67657468657220617320612073696E676C6520756E646F61626C6520616374696F6E2E
 	#tag EndConstant
+
+
+	#tag Enum, Name = CaretTypes, Type = Integer, Flags = &h0, Description = 54686520646966666572656E74207479706573206F66206361726574207374796C652E
+		VerticalBar
+	#tag EndEnum
 
 
 	#tag ViewBehavior

@@ -20,6 +20,15 @@ Protected Class LineManager
 		Private mOwner As WeakRef
 	#tag EndProperty
 
+	#tag ComputedProperty, Flags = &h21, Description = 4120636F6D7075746564207265666572656E636520746F20746865206F776E6572277320746578742073746F726167652E
+		#tag Getter
+			Get
+			  Return Owner.TextStorage
+			End Get
+		#tag EndGetter
+		Private mStorage As ITextStorage
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 41207765616B207265666572656E636520746F2074686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
 		#tag Getter
 			Get

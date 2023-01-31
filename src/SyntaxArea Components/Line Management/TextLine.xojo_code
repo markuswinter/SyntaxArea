@@ -1,17 +1,5 @@
 #tag Class
 Protected Class TextLine
-	#tag Method, Flags = &h0
-		Sub Constructor()
-		  Characters = New GapBuffer
-		  
-		End Sub
-	#tag EndMethod
-
-
-	#tag Property, Flags = &h21, Description = 5468652061637475616C2063686172616374657273206F6E2074686973206C696E652E
-		Private Characters As GapBuffer
-	#tag EndProperty
-
 	#tag ComputedProperty, Flags = &h0, Description = 546865206F666673657420696E2074686520646F63756D656E74206F6620746865206C61737420636861726163746572206F662074686973206C696E652E
 		#tag Getter
 			Get
@@ -69,6 +57,30 @@ Protected Class TextLine
 			Visible=true
 			Group="Position"
 			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Start"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Length"
+			Visible=false
+			Group="Behavior"
+			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="Finish"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
