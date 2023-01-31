@@ -173,7 +173,28 @@ Inherits NSScrollViewCanvas
 		Private Sub InsertCharacter(char As String, range As TextRange)
 		  /// Inserts a single character `char` at the current caret position.
 		  
-		  #Pragma Warning "TODO"
+		  If Not Typing Or System.Ticks > UndoIDThreshold Then
+		    CurrentUndoID = System.Ticks
+		  End If
+		  
+		  If TargetMacOS And range <> Nil And Not TextSelected Then
+		    // The user has pressed and held down a character and has selected a special character from the 
+		    // popup to insert. Replace the character *before* the caret with `char`.
+		    #Pragma Warning "TODO"
+		  Else
+		    If TextSelected Then
+		      // Replace the selection and update the caret position.
+		      #Pragma Warning "TODO"
+		    Else
+		      // Insert the character at the current caret position.
+		      TextStorage.Insert(mSelectionStart, char)
+		      Lines.Insert(mSelectionStart, char)
+		      // Advance the caret.
+		      mSelectionStart = mSelectionStart + 1
+		    End If
+		  End If
+		  
+		  Redraw
 		  
 		End Sub
 	#tag EndMethod
@@ -447,6 +468,10 @@ Inherits NSScrollViewCanvas
 		Private mTextStorage As ITextStorage
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 49662054727565207468656E2074686520656469746F722077696C6C2077726170206C696E657320746F20666974207468652063757272656E7420656469746F722077696474682E204261636B732074686520636F6D70757465642060576F726457726170602070726F70657274792E
+		Private mWordWrap As Boolean = False
+	#tag EndProperty
+
 	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C207265647261772065766572797468696E6720696E20746865206E65787420605061696E7460206576656E742E
 		NeedsFullRedraw As Boolean = True
 	#tag EndProperty
@@ -592,6 +617,25 @@ Inherits NSScrollViewCanvas
 			End Get
 		#tag EndGetter
 		Private UndoIDThreshold As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C2077726170206C696E657320746F20666974207468652063757272656E7420656469746F722077696474682E
+		#tag Getter
+			Get
+			  Return mWordWrap
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  #Pragma Warning "TODO: Ensure lines are updated"
+			  
+			  mWordWrap = value
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		WordWrap As Boolean
 	#tag EndComputedProperty
 
 

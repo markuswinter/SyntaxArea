@@ -1,5 +1,16 @@
 #tag Class
 Protected Class TextLine
+	#tag Method, Flags = &h0, Description = 436F6E737472756374732061206E65772074657874206C696E6520626567696E6E696E67206174206F66667365742060737461727460206F6620606C656E6774686020636861726163746572732E
+		Sub Constructor(start As Integer, length As Integer)
+		  /// Constructs a new text line beginning at offset `start` of `length` characters.
+		  
+		  Self.Start = start
+		  Self.Length = length
+		  
+		End Sub
+	#tag EndMethod
+
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206F666673657420696E2074686520646F63756D656E74206F6620746865206C61737420636861726163746572206F662074686973206C696E652E
 		#tag Getter
 			Get
