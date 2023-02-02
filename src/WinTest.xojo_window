@@ -26,29 +26,40 @@ Begin DesktopWindow WinTest
    Width           =   1200
    Begin SyntaxArea Editor
       AutoDeactivate  =   True
-      BackgroundColor =   &c1B1C1D00
+      BackgroundColor =   &c17171700
       BlinkCaret      =   True
       BorderColor     =   &c4F4F4F00
+      CaretColor      =   &cC2000000
       CaretPosition   =   0
+      CaretType       =   ""
+      ColumnsPerIndent=   2
+      CurrentLineHighlightColor=   &c1C1D1E00
       CurrentUndoID   =   0
+      DisplayLineNumbers=   True
       Enabled         =   True
-      FontName        =   "System"
+      FirstVisibleLine=   0
+      FontName        =   "Source Code Pro"
+      FontSize        =   14
       HasBottomBorder =   True
       HasLeftBorder   =   True
       HasRightBorder  =   True
       HasTopBorder    =   True
       Height          =   680
+      HighlightCurrentLine=   True
       Index           =   -2147483648
       InitialParent   =   ""
       Left            =   20
+      LineNumberFontSize=   12
       LockBottom      =   True
       LockedInPosition=   False
       LockLeft        =   True
       LockRight       =   True
       LockTop         =   True
+      LongestLineChanged=   False
       NeedsFullRedraw =   True
       ReadOnly        =   False
       Scope           =   0
+      ScrollPosX      =   0
       SelectionLength =   0
       SelectionStart  =   0
       TabIndex        =   0
@@ -56,12 +67,13 @@ Begin DesktopWindow WinTest
       TabStop         =   True
       TextColor       =   &cFFFFFF00
       TextSelected    =   False
-      TextSize        =   12
       Tooltip         =   ""
       Top             =   20
       Typing          =   False
+      VerticalLinePadding=   2
       Visible         =   True
       Width           =   799
+      WordWrap        =   False
    End
    Begin DesktopListBox DebugListbox
       AllowAutoDeactivate=   True
@@ -93,7 +105,7 @@ Begin DesktopWindow WinTest
       Left            =   831
       LockBottom      =   True
       LockedInPosition=   False
-      LockLeft        =   True
+      LockLeft        =   False
       LockRight       =   True
       LockTop         =   True
       RequiresSelection=   False

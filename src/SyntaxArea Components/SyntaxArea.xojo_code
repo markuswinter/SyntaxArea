@@ -129,6 +129,9 @@ Inherits NSScrollViewCanvas
 		Sub Paint(g As Graphics, areas() As Xojo.Rect)
 		  #Pragma Unused areas
 		  
+		  // Cache this graphics context.
+		  mPaintGraphics = g
+		  
 		  // Update the width of the document.
 		  #Pragma Warning "OPTIMISE: This doesn't need calling on each refresh"
 		  ComputeDocumentWidth(g)
@@ -157,11 +160,15 @@ Inherits NSScrollViewCanvas
 		  // Compute and cache the last visible line index.
 		  mLastVisibleLineIndex = LastVisibleLineIndex
 		  
+		  // Ensure the correct font name and size are set.
+		  g.FontName = FontName
+		  g.FontSize = FontSize
+		  
 		  // Iterate over the visible lines and draw every line.
 		  Var lineStartY As Double = 0
 		  For i As Integer = mFirstVisibleLine To mLastVisibleLineIndex
-		    Var line As TextLine = Lines.LineAt(i)
-		    line.Draw(g, 0, lineStartY, mLineHeight, mGutterWidth)
+		    Var line As TextLine = Lines.LineAtIndex(i)
+		    line.Draw(g, -mScrollPosX + mGutterWidth + LINE_CONTENTS_LEFT_PADDING, lineStartY, mLineHeight, mGutterWidth)
 		    lineStartY = lineStartY + mLineHeight
 		  Next i
 		  
@@ -203,7 +210,12 @@ Inherits NSScrollViewCanvas
 		Private Sub ChangeSelection(selStart As Integer, selLength As Integer)
 		  /// Change the current selection to begin at `selStart` and extend for `selLength` characters.
 		  
-		  #Pragma Warning "TODO"
+		  mSelectionStart = Clamp(selStart, 0, TextStorage.Length)
+		  mSelectionLength = Clamp(selLength, 0, TextStorage.Length - mSelectionStart)
+		  
+		  mCurrentLine = Lines.LineAtOffset(mSelectionStart)
+		  
+		  NeedsFullRedraw = True
 		  
 		End Sub
 	#tag EndMethod
@@ -277,7 +289,12 @@ Inherits NSScrollViewCanvas
 		  Super.Constructor
 		  
 		  mCaretBlinkerTimer = New Timer
+		  mCaretBlinkerTimer.RunMode = Timer.RunModes.Multiple
+		  mCaretBlinkerTimer.Period = CaretBlinkPeriod
 		  AddHandler mCaretBlinkerTimer.Action, AddressOf CaretBlinkerTimerAction
+		  
+		  mCurrentLine = Lines.LineAtIndex(0)
+		  
 		End Sub
 	#tag EndMethod
 
@@ -348,7 +365,7 @@ Inherits NSScrollViewCanvas
 		      TextStorage.Insert(mSelectionStart, char)
 		      Lines.Insert(mSelectionStart, char)
 		      // Advance the caret.
-		      mSelectionStart = mSelectionStart + 1
+		      SelectionStart = SelectionStart + 1
 		    End If
 		  End If
 		  
@@ -418,6 +435,22 @@ Inherits NSScrollViewCanvas
 		  
 		  #Pragma Warning "TODO"
 		  
+		  // Don't draw the caret if we're dragging.
+		  If mDragging Then Return
+		  
+		  // Compute the x, y coordinates at the current caret position.
+		  Var x, y As Double = 0
+		  XYAtOffset(mSelectionStart, x, y)
+		  
+		  // Adjust y to account for the vertical line padding.
+		  y = y + VerticalLinePadding
+		  
+		  // Draw it.
+		  g.DrawingColor = CaretColor
+		  Select Case CaretType
+		  Case CaretTypes.VerticalBar
+		    g.DrawLine(x, y, x, y + g.TextHeight)
+		  End Select
 		End Sub
 	#tag EndMethod
 
@@ -428,6 +461,36 @@ Inherits NSScrollViewCanvas
 		  NeedsFullRedraw = True
 		  
 		  Refresh(True)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 436F6D70757465732028427952656629207468652063616E76617320782C207920636F6F7264696E61746573206174207468652063757272656E7420302D6261736564206F66667365742E
+		Private Sub XYAtOffset(offset As Integer, ByRef x As Double, ByRef y As Double)
+		  /// Computes (ByRef) the canvas x, y coordinates at the current 0-based offset.
+		  ///
+		  /// Assumes that `mPaintGraphics` has the current editor font name and size set.
+		  
+		  Var line As TextLine = Lines.LineAtOffset(offset)
+		  
+		  Var g As Graphics = mPaintGraphics
+		  If g = Nil Then
+		    Var p As Picture
+		    If Self.Window <> Nil Then
+		      p = Self.Window.BitmapForCaching(1, 1)
+		    Else
+		      p = New Picture(1, 1)
+		    End If
+		    g = p.Graphics
+		  End If
+		  
+		  // X
+		  Var tempX As Integer = mGutterWidth + LINE_CONTENTS_LEFT_PADDING + _
+		  line.IndentWidth(g.TextWidth("_"))
+		  x = tempX + line.WidthToOffset(offset, g)
+		  
+		  // Y
+		  y = (line.Index - mFirstVisibleLine) * mLineHeight
 		  
 		End Sub
 	#tag EndMethod
@@ -475,6 +538,42 @@ Inherits NSScrollViewCanvas
 		BorderColor As ColorGroup
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 54686520696E74657276616C2028696E206D7329206265747765656E20636172657420626C696E6B732E
+		#tag Getter
+			Get
+			  If mCaretBlinkerTimer <> Nil Then
+			    Return mCaretBlinkerTimer.Period
+			  Else
+			    Return 0
+			  End If
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If mCaretBlinkerTimer <> Nil Then
+			    mCaretBlinkerTimer.Period = Max(value, 1)
+			  End If
+			  
+			End Set
+		#tag EndSetter
+		CaretBlinkPeriod As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520636172657420636F6C6F75722E
+		#tag Getter
+			Get
+			  Return mCaretColor
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mCaretColor = value
+			  Me.Redraw
+			End Set
+		#tag EndSetter
+		CaretColor As ColorGroup
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C75746520302D626173656420636172657420706F736974696F6E2E
 		#tag Getter
 			Get
@@ -483,6 +582,23 @@ Inherits NSScrollViewCanvas
 			End Get
 		#tag EndGetter
 		CaretPosition As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 5468652074797065206F66206361726574207468652063616E7661732073686F756C64207573652E
+		#tag Getter
+			Get
+			  Return mCaretType
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mCaretType = value
+			  Me.Refresh
+			  
+			End Set
+		#tag EndSetter
+		CaretType As CaretTypes
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E
@@ -499,6 +615,38 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		ColumnsPerIndent As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865206C696E652074686174207468652063617265742069732063757272656E746C79206F6E2E
+		#tag Getter
+			Get
+			  Return mCurrentLine
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mCurrentLine = value
+			  
+			End Set
+		#tag EndSetter
+		CurrentLine As TextLine
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520636F6C6F757220746F2075736520746F20686967686C69676874207468652063757272656E74206C696E652028696620656E61626C6564292E
+		#tag Getter
+			Get
+			  Return mCurrentLineHighlightColor
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mCurrentLineHighlightColor = value
+			  NeedsFullRedraw = True
+			  
+			End Set
+		#tag EndSetter
+		CurrentLineHighlightColor As ColorGroup
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 546865204944206F66207468652067726F7570206F6620756E646F20616374696F6E7320746861742061726520636F6E73696465726564206173206F6E6520226576656E742220666F722074686520707572706F736573206F6620756E646F2E
@@ -657,6 +805,22 @@ Inherits NSScrollViewCanvas
 		HasTopBorder As Boolean
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 49662054727565207468656E20746865206C696E65207468652063617265742069732063757272656E746C79206F6E2077696C6C20626520686967686C6967687465642E
+		#tag Getter
+			Get
+			  Return mHighlightCurrentLine
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mHighlightCurrentLine = value
+			  NeedsFullRedraw = True
+			  
+			End Set
+		#tag EndSetter
+		HighlightCurrentLine As Boolean
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206C696E65206E756D62657220666F6E742073697A652E204D757374206265206C657373207468616E2060466F6E7453697A65602E
 		#tag Getter
 			Get
@@ -704,8 +868,16 @@ Inherits NSScrollViewCanvas
 		Private mCaretBlinkerTimer As Timer
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 54686520636F6C6F7572206F66207468652063617265742E204261636B732074686520604361726574436F6C6F726020636F6D70757465642070726F70657274792E
+		Private mCaretColor As ColorGroup
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 546865206F2D626173656420706F736974696F6E206F66207468652063617265742E2053657420746F20602D316020696620746865206361726574206973206E6F742076697369626C652E
 		Private mCaretPosition As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865206361726574207374796C652E204261636B696E67206669656C6420666F722074686520604361726574547970656020636F6D70757465642070726F70657274792E
+		Private mCaretType As CaretTypes
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 54727565206966207468652063617265742068617320626C696E6B65642076697369626C652C2046616C7365206966206E6F742E
@@ -714,6 +886,14 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E204261636B73207468652060436F6C756D6E73506572496E64656E746020636F6D70757465642070726F70657274792E
 		Private mColumnsPerIndent As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865206C696E652074686174207468652063617265742069732063757272656E746C79206F6E2E204261636B696E67206669656C6420666F7220746865206043757272656E744C696E656020636F6D70757465642070726F70657274792E
+		Private mCurrentLine As TextLine
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 54686520636F6C6F757220746F2075736520746F20686967686C69676874207468652063757272656E74206C696E652028696620656E61626C6564292E204261636B732074686520636F6D7075746564206043757272656E744C696E65486967686C69676874436F6C6F72602070726F70657274792E
+		Private mCurrentLineHighlightColor As ColorGroup
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F7220746865206043757272656E74556E646F49446020636F6D70757465642070726F70657274792E
@@ -764,6 +944,10 @@ Inherits NSScrollViewCanvas
 		Private mHasTopBorder As Boolean
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 49662054727565207468656E20746865206C696E65207468652063617265742069732063757272656E746C79206F6E2077696C6C20626520686967686C6967687465642E204261636B696E67206669656C6420666F72207468652060486967686C6967687443757272656E744C696E656020636F6D70757465642070726F70657274792E
+		Private mHighlightCurrentLine As Boolean
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 5468652074696D65206F6620746865206C61737420604B6579446F776E60206576656E742E205573656420746F2064657465726D696E65206966207468652075736572206973207374696C6C20747970696E672E
 		Private mLastKeyDownTicks As Double
 	#tag EndProperty
@@ -796,11 +980,15 @@ Inherits NSScrollViewCanvas
 		Private mMaxVisibleLines As Integer = 0
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 496E7465726E616C206361636865206F662074686520477261706869637320636F6E746578742066726F6D20746865206C61737420605061696E7460206576656E742E
+		Private mPaintGraphics As Graphics
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
 		Private mReadOnly As Boolean = False
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F722074686520605363726F6C6C506F73586020636F6D70757465642070726F70657274792E
+	#tag Property, Flags = &h21, Description = 54686520686F72697A6F6E74616C207363726F6C6C206F66667365742E203020697320626173656C696E652E20506F73697469766520696E64696361746573207363726F6C6C696E6720746F207468652072696768742E204261636B696E67206669656C6420666F722074686520605363726F6C6C506F73586020636F6D70757465642070726F70657274792E
 		Private mScrollPosX As Integer = 0
 	#tag EndProperty
 
@@ -1020,6 +1208,9 @@ Inherits NSScrollViewCanvas
 
 
 	#tag Constant, Name = BLOCK_GUTTER_MIN_WIDTH, Type = Double, Dynamic = False, Default = \"18", Scope = Public, Description = 546865206D696E696D616C207769647468206F66207468652067757474657220636F6E7461696E696E672074686520626C6F636B20696E64696361746F72732E
+	#tag EndConstant
+
+	#tag Constant, Name = LINE_CONTENTS_LEFT_PADDING, Type = Double, Dynamic = False, Default = \"5", Scope = Public, Description = 5468652070616464696E67206265747765656E2074686520726967687420677574746572206564676520616E6420746865206C696E6520636F6E74656E74732E
 	#tag EndConstant
 
 	#tag Constant, Name = MIN_LINE_NUMBER_WIDTH, Type = Double, Dynamic = False, Default = \"20", Scope = Private, Description = 4966206C696E65206E756D6265727320617265202A6E6F742A20647261776E2C207468697320697320746865206D696E696D756D207769647468206F6620746865206C696E65206E756D6265722073656374696F6E206F6620746865206775747465722E
@@ -1331,7 +1522,7 @@ Inherits NSScrollViewCanvas
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="BlinkCaret"
-			Visible=false
+			Visible=true
 			Group="Behavior"
 			InitialValue="True"
 			Type="Boolean"
@@ -1339,9 +1530,9 @@ Inherits NSScrollViewCanvas
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="WordWrap"
-			Visible=false
+			Visible=true
 			Group="Behavior"
-			InitialValue=""
+			InitialValue="False"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
@@ -1363,25 +1554,25 @@ Inherits NSScrollViewCanvas
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="LineNumberFontSize"
-			Visible=false
+			Visible=true
 			Group="Behavior"
-			InitialValue=""
+			InitialValue="12"
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="DisplayLineNumbers"
-			Visible=false
+			Visible=true
 			Group="Behavior"
-			InitialValue=""
+			InitialValue="True"
 			Type="Boolean"
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="VerticalLinePadding"
-			Visible=false
+			Visible=true
 			Group="Behavior"
-			InitialValue=""
+			InitialValue="2"
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
@@ -1395,9 +1586,52 @@ Inherits NSScrollViewCanvas
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="ColumnsPerIndent"
-			Visible=false
+			Visible=true
+			Group="Behavior"
+			InitialValue="2"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="HighlightCurrentLine"
+			Visible=true
+			Group="Behavior"
+			InitialValue="True"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CurrentLineHighlightColor"
+			Visible=true
 			Group="Behavior"
 			InitialValue=""
+			Type="ColorGroup"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretType"
+			Visible=true
+			Group="Behavior"
+			InitialValue=""
+			Type="CaretTypes"
+			EditorType="Enum"
+			#tag EnumValues
+				"0 - VerticalBar"
+			#tag EndEnumValues
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretColor"
+			Visible=true
+			Group="Behavior"
+			InitialValue=""
+			Type="ColorGroup"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretBlinkPeriod"
+			Visible=true
+			Group="Behavior"
+			InitialValue="500"
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty

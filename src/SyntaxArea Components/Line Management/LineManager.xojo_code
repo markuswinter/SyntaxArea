@@ -1,15 +1,15 @@
 #tag Class
 Protected Class LineManager
 	#tag Method, Flags = &h0
-		Sub Constructor(owner As SyntaxArea)
-		  If owner = Nil Then
+		Sub Constructor(editor As SyntaxArea)
+		  If editor = Nil Then
 		    Raise New InvalidArgumentException("A line manager must be owned by a valid SyntaxArea.")
 		  End If
 		  
-		  mOwner = New WeakRef(owner)
+		  mEditor = New WeakRef(editor)
 		  
 		  // The line manager must always have at least one line.
-		  mLines.Add(New TextLine(0, 0, Self))
+		  mLines.Add(New TextLine(0, 0, Self, 0))
 		  
 		  mLongestLine = mLines(0)
 		  
@@ -48,8 +48,8 @@ Protected Class LineManager
 		    // and inserting a new line with the characters following the break.
 		    Var newLineLength As Integer = line.Finish - offset
 		    line.Length = offset - line.Start
-		    mLines.AddAt(originalLineIndex + 1, New TextLine(offset + 1, newLineLength, Self))
-		    If Owner.WordWrap Then
+		    mLines.AddAt(originalLineIndex + 1, New TextLine(offset + 1, newLineLength, Self, originalLineIndex + 1))
+		    If Editor.WordWrap Then
 		      #Pragma Warning "TODO: Recompute lines"
 		    Else
 		      FixStartOffsets(originalLineIndex + 2, newLineLength)
@@ -59,7 +59,7 @@ Protected Class LineManager
 		    // Insert text only on this line. 
 		    // We just need to increase the length of the affected line and fix the offsets of subsequent lines.
 		    line.Length = line.Length + sLength
-		    If Owner.WordWrap Then
+		    If Editor.WordWrap Then
 		      #Pragma Warning "TODO: Recompute lines"
 		    Else
 		      FixStartOffsets(originalLineIndex + 1, sLength)
@@ -74,13 +74,14 @@ Protected Class LineManager
 		  // Has the longest line changed?
 		  If line.ColumnLength > longestLineLength Then
 		    mLongestLine = line
-		    Owner.LongestLineChanged = True
+		    Editor.LongestLineChanged = True
 		  End If
+		  
 		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h0, Description = 52657475726E7320746865206C696E652061742074686520302D62617365642060696E64657860206F72204E696C2E
-		Function LineAt(index As Integer) As TextLine
+		Function LineAtIndex(index As Integer) As TextLine
 		  /// Returns the line at the 0-based `index` or Nil.
 		  
 		  If index < 0 Or index > mLines.LastIndex Then
@@ -88,6 +89,15 @@ Protected Class LineManager
 		  Else
 		    Return mLines(index)
 		  End If
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206C696E65206174207468652073706563696669656420606F666673657460206F72204E696C2E
+		Function LineAtOffset(offset As Integer) As TextLine
+		  /// Returns the line at the specified `offset` or Nil.
+		  
+		  Return LineAtIndex(LineIndexForOffset(offset))
 		  
 		End Function
 	#tag EndMethod
@@ -127,10 +137,24 @@ Protected Class LineManager
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E
 		#tag Getter
 			Get
-			  Return Owner.ColumnsPerIndent
+			  Return Editor.ColumnsPerIndent
 			End Get
 		#tag EndGetter
 		ColumnsPerIndent As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 41207765616B207265666572656E636520746F2074686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
+		#tag Getter
+			Get
+			  If mEditor = Nil Then
+			    Return Nil
+			  Else
+			    Return SyntaxArea(mEditor.Value)
+			  End If
+			  
+			End Get
+		#tag EndGetter
+		Editor As SyntaxArea
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F66206C696E657320696E2074686520656469746F722E
@@ -153,6 +177,10 @@ Protected Class LineManager
 		LongestLine As TextLine
 	#tag EndComputedProperty
 
+	#tag Property, Flags = &h21, Description = 54686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
+		Private mEditor As WeakRef
+	#tag EndProperty
+
 	#tag Property, Flags = &h0, Description = 546865206C696E657320696E2074686520646F63756D656E742E
 		mLines() As TextLine
 	#tag EndProperty
@@ -161,28 +189,10 @@ Protected Class LineManager
 		Private mLongestLine As TextLine
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 54686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
-		Private mOwner As WeakRef
-	#tag EndProperty
-
-	#tag ComputedProperty, Flags = &h0, Description = 41207765616B207265666572656E636520746F2074686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
-		#tag Getter
-			Get
-			  If mOwner = Nil Then
-			    Return Nil
-			  Else
-			    Return SyntaxArea(mOwner.Value)
-			  End If
-			  
-			End Get
-		#tag EndGetter
-		Owner As SyntaxArea
-	#tag EndComputedProperty
-
 	#tag ComputedProperty, Flags = &h0, Description = 4120636F6D7075746564207265666572656E636520746F20746865206F776E6572277320746578742073746F726167652E
 		#tag Getter
 			Get
-			  Return Owner.TextStorage
+			  Return Editor.TextStorage
 			End Get
 		#tag EndGetter
 		Storage As ITextStorage
