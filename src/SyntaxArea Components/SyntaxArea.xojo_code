@@ -31,13 +31,13 @@ Inherits NSScrollViewCanvas
 
 	#tag Event
 		Function FontSizeAtLocation(location As Integer) As Single
-		  /// Returns the current text size.
+		  /// Returns the current font size.
 		  ///
 		  /// The editor only supports a uniform text size for all tokens.
 		  
 		  #Pragma Unused location
 		  
-		  Return mTextSize
+		  Return mFontSize
 		  
 		End Function
 	#tag EndEvent
@@ -50,7 +50,7 @@ Inherits NSScrollViewCanvas
 		  mLastKeyDownTicks = System.Ticks
 		  
 		  // It might seem a little pointless to redirect straight to a method but
-		  // later we wil need to do more here.
+		  // later we will need to do more here.
 		  InsertCharacter(text, range)
 		  
 		End Sub
@@ -87,19 +87,88 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndEvent
 
+	#tag Event , Description = 546865207363726F6C6C207669657720626F756E647320686173206368616E6765642E
+		Sub NSScrollViewBoundsChanged(bounds As CGRect)
+		  /// The user has scrolled with the mouse / trackpad on macOS.
+		  ///
+		  /// bounds.Origin.X is the horizontal scroll offset (same as NSScrollViewCanvas.ScrollX_)
+		  /// bounds.Origin.Y is the vertical scroll offset (same as NSScrollViewCanvas.ScrollY_)
+		  /// bounds.RectSize contains the width and height of the document window.
+		  ///
+		  /// Note: This replaces the `MouseWheel` event on macOS.
+		  
+		  #Pragma Unused bounds
+		  
+		  // =================================
+		  // VERTICAL SCROLLING
+		  // =================================
+		  If ScrollY_ > 0 Then
+		    // In order to see all of the lowest most line to be visible, we need to increase `ScrollY_` a bit.
+		    Var y As Integer = ScrollY_ + (mLineHeight * 2)
+		    mFirstVisibleLine = Floor(y / mLineHeight)
+		    mFirstVisibleLine = Clamp(mFirstVisibleLine, 0, Lines.LineCount - 1)
+		    NeedsFullRedraw = True
+		  Else
+		    mFirstVisibleLine = 0
+		    NeedsFullRedraw = True
+		  End If
+		  mScrollPosY = ScrollY_
+		  
+		  // =================================
+		  // HORIZONTAL SCROLLING
+		  // =================================
+		  If ScrollX_ >= 0 Then
+		    ScrollPosX = ScrollX_
+		  End If
+		  
+		  Refresh
+		End Sub
+	#tag EndEvent
+
 	#tag Event
 		Sub Paint(g As Graphics, areas() As Xojo.Rect)
 		  #Pragma Unused areas
+		  
+		  // Update the width of the document.
+		  #Pragma Warning "OPTIMISE: This doesn't need calling on each refresh"
+		  ComputeDocumentWidth(g)
+		  
+		  // On macOS we need to update the document size to get fancy scrollbars.
+		  #If TargetMacOS
+		    SetDocumentSize(mDocumentWidth, Lines.LineCount * mLineHeight)
+		  #EndIf
 		  
 		  // Editor background.
 		  g.DrawingColor = BackgroundColor
 		  g.FillRectangle(0, 0, g.Width, g.Height)
 		  
-		  // Draw the caret.
-		  If mCaretVisible Then
-		    PaintCaret(g)
-		  End If
+		  // Compute and cache the width of the line numbers in the gutter and
+		  // the width of an individual line number character.
+		  #Pragma Warning "OPTIMISE: This doesn't need calling on each refresh"
+		  ComputeLineNumberWidth(g)
 		  
+		  // Compute and then cache gutter width.
+		  mGutterWidth = GutterWidth(mLineNumWidth)
+		  
+		  // Compute and then cache the current line height.
+		  #Pragma Warning "OPTIMISE: This only needs updating when the font name or size changes"
+		  mLineHeight = LineHeight(g)
+		  
+		  // Compute and cache the last visible line index.
+		  mLastVisibleLineIndex = LastVisibleLineIndex
+		  
+		  // Iterate over the visible lines and draw every line.
+		  Var lineStartY As Double = 0
+		  For i As Integer = mFirstVisibleLine To mLastVisibleLineIndex
+		    Var line As TextLine = Lines.LineAt(i)
+		    line.Draw(g, 0, lineStartY, mLineHeight, mGutterWidth)
+		    lineStartY = lineStartY + mLineHeight
+		  Next i
+		  
+		  // Draw the caret.
+		  If mCaretVisible Then PaintCaret(g)
+		  
+		  // Draw the optional editor borders.
 		  DrawCanvasBorders(g)
 		  
 		End Sub
@@ -139,6 +208,69 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h21, Description = 52657475726E7320746865207061737365642076616C756520636C616D706564206265747765656E20606D696E696D756D6020616E6420606D6178696D756D602E
+		Private Function Clamp(value As Double, minimum As Double, maximum As Double) As Double
+		  /// Returns the passed value clamped between `minimum` and `maximum`.
+		  
+		  If value > maximum Then Return maximum
+		  If value < minimum Then Return minimum
+		  Return value
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 436F6D707574657320746865207769647468206F662074686520646F63756D656E74206261736564206F6E2074686520656469746F7227732047726170686963732060676020616E64207365747320606D446F63756D656E7457696474686020746F20746861742076616C75652E205768656E2060576F7264577261706020697320547275652074686973206973207468652063616E7661732077696474682C206F746865727769736520697427732074686520776964746820726571756972656420746F20646973706C617920746865206C6F6E67657374206C696E6520776974686F7574207363726F6C6C696E672E2057696C6C20616C77617973206265206174206C656173742061732077696465206173207468652063616E766173272063757272656E742077696474682E
+		Private Sub ComputeDocumentWidth(g As Graphics)
+		  /// Computes the width of the document based on the editor's Graphics `g` and sets `mDocumentWidth` to that value.
+		  /// When `WordWrap` is True this is the canvas width, otherwise it's the width required to display
+		  /// the longest line without scrolling.
+		  /// Will always be at least as wide as the canvas' current width.
+		  
+		  // If word wrapping is enabled then the document width is just the width of the editor's canvas.
+		  If WordWrap Then
+		    mDocumentWidth = g.Width
+		    Return
+		  End If
+		  
+		  // Get the longest line.
+		  Var longestLine As TextLine = Lines.LongestLine
+		  
+		  // Determine the width to the end of the longest line.
+		  Var w As Double = longestLine.WidthToColumn(longestLine.Length, g)
+		  
+		  // Add in the gutter width and any padding.
+		  w = w + GutterWidth(mLineNumWidth) + RIGHT_SCROLL_PADDING
+		  
+		  // Cache the width.
+		  mDocumentWidth = Max(w, g.Width)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 436F6D7075746520746865207769647468206F662074686520626F756E64696E6720626F7820666F7220746865206C696E65206E756D62657220737472696E6720616E642073746F72657320697420696E20606D4C696E654E756D5769647468602E20416C736F207570646174657320606D4C696E654E756D436861725769647468602E206067602069732074686520677261706869637320636F6E746578742077652772652064726177696E6720746F2E
+		Private Sub ComputeLineNumberWidth(g As Graphics)
+		  /// Compute the width of the bounding box for the line number string and stores it in `mLineNumWidth`.
+		  /// Also updates `mLineNumCharWidth`.
+		  /// `g` is the graphics context we're drawing to.
+		  
+		  // Cache the width of a line number character. Assumes we're using a monospace font.
+		  g.FontName = FontName
+		  g.FontSize = LineNumberFontSize
+		  mLineNumCharWidth = g.TextWidth("0")
+		  
+		  If DisplayLineNumbers Then
+		    // Make sure we compute the width of a minimum of two characters, 
+		    // otherwise the gutter resizes when you get to 9 lines.
+		    // +10 is a fudge to make the TextShape drawn by the line align better.
+		    mLineNumWidth = _
+		    (Max(Lines.LineCount.ToString.Length, 2) * mLineNumCharWidth) + 10
+		  Else
+		    mLineNumWidth = MIN_LINE_NUMBER_WIDTH
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h0
 		Sub Constructor()
 		  // Calling the overridden superclass constructor.
@@ -169,9 +301,35 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h21, Description = 496E736572747320612073696E676C652063686172616374657220606368617260206174207468652063757272656E7420636172657420706F736974696F6E2E
+	#tag Method, Flags = &h21, Description = 436F6D707574657320616E642072657475726E732074686520776964746820696E20706978656C73206F662074686520677574746572207573696E67207468652070617373656420606C696E654E756D6265725769647468602E
+		Private Function GutterWidth(lineNumberWidth As Double) As Double
+		  /// Computes and returns the width in pixels of the gutter using the passed `lineNumberWidth`.
+		  ///
+		  /// Gutter structure:
+		  ///
+		  /// ```no-highlight
+		  /// ________________
+		  /// |           |  |
+		  /// |           |  |
+		  /// ----------------
+		  ///   ↑          ↑  
+		  ///  LNW         BG
+		  /// ```
+		  ///
+		  // _LNW (Line number width)_: The width of the rectangle containing the line number.
+		  ///
+		  /// _BG (Block gutter min width)_: The minimal width of the gutter containing 
+		  ///                                the block indicators. This is variable but must be a minimal width.
+		  
+		  Return lineNumberWidth + BLOCK_GUTTER_MIN_WIDTH
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 496E73657274732061202A2A73696E676C652A2A2063686172616374657220606368617260206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D65732074686174206966206063686172602069732061206E65776C696E65207468656E20697473206265656E207374616E646172646973656420746F20554E49582E
 		Private Sub InsertCharacter(char As String, range As TextRange)
-		  /// Inserts a single character `char` at the current caret position.
+		  /// Inserts a **single** character `char` at the current caret position.
+		  /// Assumes that if `char` is a newline then its been standardised to UNIX.
 		  
 		  If Not Typing Or System.Ticks > UndoIDThreshold Then
 		    CurrentUndoID = System.Ticks
@@ -197,6 +355,61 @@ Inherits NSScrollViewCanvas
 		  Redraw
 		  
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 54686520302D6261736564206C696E65206E756D626572206F6620746865206C6173742076697369626C65206C696E652E
+		Function LastVisibleLineIndex() As Integer
+		  /// The 0-based line number of the last visible line. 
+		  ///
+		  /// The line may be only partially visible.
+		  /// Relies on the cached value of the current line height.
+		  
+		  Return Min(mFirstVisibleLine + MaxVisibleLines(mLineHeight), Lines.LineCount - 1)
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 52657475726E7320746865206865696768742028696E20706978656C7329206F662061206C696E6520676976656E2074686520677261706869637320636F6E74657874206067602E
+		Private Function LineHeight(g As Graphics) As Double
+		  /// Returns the height (in pixels) of a line given the graphics context `g`.
+		  
+		  Const TEXT_DESCENT_FUDGE = 1
+		  
+		  // We compute line height based on the source code font size and family.
+		  // Since we can't guarantee where this method is called from, we'll
+		  // cache the current value of these properties in `g`, temporarily set the
+		  // graphics font properties to the source code font family and size and then
+		  // restore the original properties.
+		  
+		  Var tmpFontSize As Integer = g.FontSize
+		  Var tmpFontName As String = g.FontName
+		  
+		  // Set.
+		  g.FontSize = FontSize
+		  g.FontName = FontName
+		  
+		  // Compute.
+		  Var lh As Double = g.TextHeight + (2 * VerticalLinePadding) + TEXT_DESCENT_FUDGE
+		  
+		  // Restore.
+		  g.FontSize = tmpFontSize
+		  g.FontName = tmpFontName
+		  
+		  Return lh
+		  
+		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 546865206D6178696D756D206E756D626572206F66206C696E65732074686174206172652076697369626C6520696E207468652063616E7661732E
+		Private Function MaxVisibleLines(lineHeight As Double) As Integer
+		  /// The maximum number of lines that are visible in the canvas. 
+		  ///
+		  /// This will never be more than the maximum number of lines in existence.
+		  
+		  mMaxVisibleLines = Min(Me.Height / lineHeight, Lines.LineCount)
+		  
+		  Return mMaxVisibleLines
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21, Description = 5061696E74732074686520636172657420746F206067602061742074686520302D62617365642060706F73602E
@@ -272,6 +485,22 @@ Inherits NSScrollViewCanvas
 		CaretPosition As Integer
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E
+		#tag Getter
+			Get
+			  Return mColumnsPerIndent
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  // Clamp above 0.
+			  mColumnsPerIndent = Max(0, value)
+			  
+			End Set
+		#tag EndSetter
+		ColumnsPerIndent As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865204944206F66207468652067726F7570206F6620756E646F20616374696F6E7320746861742061726520636F6E73696465726564206173206F6E6520226576656E742220666F722074686520707572706F736573206F6620756E646F2E
 		#tag Getter
 			Get
@@ -286,6 +515,41 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		CurrentUndoID As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54727565206966206C696E65206E756D626572732073686F756C6420626520646973706C617965642E
+		#tag Getter
+			Get
+			  Return mDisplayLineNumbers
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mDisplayLineNumbers = value
+			  NeedsFullRedraw = True
+			  Refresh
+			  
+			End Set
+		#tag EndSetter
+		DisplayLineNumbers As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520696E646578206F6620746865206C696E652076697369626C652061742074686520746F70206F66207468652063616E7661732E20416C746572656420627920766572746963616C207363726F6C6C696E672E20302D62617365642E
+		#tag Getter
+			Get
+			  Return mFirstVisibleLine
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mFirstVisibleLine = Clamp(value, 0, Lines.LineCount - 1)
+			  NeedsFullRedraw = True
+			  
+			End Set
+		#tag EndSetter
+		FirstVisibleLine As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
@@ -305,6 +569,25 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		FontName As String
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520666F6E742073697A652E
+		#tag Getter
+			Get
+			  Return mFontSize
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  If mFontSize = value Then Return
+			  
+			  mFontSize = value
+			  
+			  Redraw
+			  
+			End Set
+		#tag EndSetter
+		FontSize As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C2068617665206120626F74746F6D20626F726465722E
@@ -374,6 +657,23 @@ Inherits NSScrollViewCanvas
 		HasTopBorder As Boolean
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206C696E65206E756D62657220666F6E742073697A652E204D757374206265206C657373207468616E2060466F6E7453697A65602E
+		#tag Getter
+			Get
+			  Return mLineNumberFontSize
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mLineNumberFontSize = value
+			  NeedsFullRedraw = True
+			  Refresh
+			  
+			End Set
+		#tag EndSetter
+		LineNumberFontSize As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0
 		#tag Getter
 			Get
@@ -387,6 +687,10 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		Lines As LineManager
 	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 49662054727565207468656E2074686520746865726520686173206265656E2061206368616E676520696E20746865206C656E677468206F6620746865206C6F6E67657374206C696E652E20546869732069732073657420696E7465726E616C6C792062792074686520656469746F722773206C696E65206D616E616765722E
+		LongestLineChanged As Boolean = False
+	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 54686520656469746F722773206261636B67726F756E6420636F6C6F75722E204261636B7320604261636B67726F756E64436F6C6F72602E
 		Private mBackgroundColor As ColorGroup
@@ -408,16 +712,40 @@ Inherits NSScrollViewCanvas
 		Private mCaretVisible As Boolean = False
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E204261636B73207468652060436F6C756D6E73506572496E64656E746020636F6D70757465642070726F70657274792E
+		Private mColumnsPerIndent As Integer
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F7220746865206043757272656E74556E646F49446020636F6D70757465642070726F70657274792E
 		Private mCurrentUndoID As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F72207468652060446973706C61794C696E654E756D626572736020636F6D70757465642070726F70657274792E
+		Private mDisplayLineNumbers As Boolean
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 436163686564207769647468206F66207468652077686F6C6520646F63756D656E742E205768656E20576F72645772617020697320656E61626C65642074686973206973207468652063616E7661732077696474682C206F746865727769736520697427732074686520776964746820726571756972656420746F20646973706C617920746865206C6F6E67657374206C696E6520776974686F7574207363726F6C6C696E672E
+		Private mDocumentWidth As Double
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 5472756520696620746865206D6F7573652069732063757272656E746C79206472616767696E672E
 		Private mDragging As Boolean = False
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F72207468652060466972737456697369626C654C696E656020636F6D70757465642070726F70657274792E20302D62617365642E
+		Private mFirstVisibleLine As Integer = 0
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 54686520666F6E742066616D696C79206F662074686520746578742E
 		Private mFontName As String
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 54686520666F6E742073697A652E
+		Private mFontSize As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 416E20696E7465726E616C206361636865206F66207468652067757474657220776964746820696E20706978656C732E20436F6D707574656420696E2074686520605061696E7460206576656E742E
+		Private mGutterWidth As Double
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 49662054727565207468656E2074686520656469746F722077696C6C2068617665206120626F74746F6D20626F726465722E204261636B732060486173426F74746F6D426F72646572602E
@@ -440,12 +768,44 @@ Inherits NSScrollViewCanvas
 		Private mLastKeyDownTicks As Double
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 43616368656420302D626173656420696E646578206F6620746865206C6173742076697369626C65206C696E652E2043616368656420696E2074686520605061696E7460206576656E742E
+		Private mLastVisibleLineIndex As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 496E7465726E616C206361636865206F66207468652063757272656E74206C696E65206865696768742E
+		Private mLineHeight As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F722074686520636F6D707574656420604C696E654E756D626572466F6E7453697A65602E
+		Private mLineNumberFontSize As Integer
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4361636865642076616C7565206F6620746865207769647468206F662061206C696E65206E756D626572206368617261637465722E20436F6D707574656420696E2060436F6D707574654C696E654E756D62657257696474682829602E
+		Private mLineNumCharWidth As Double
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 496E7465726E616C206361636865206F6620746865206C696E65206E756D62657220776964746820696E20746865206775747465722E
+		Private mLineNumWidth As Double
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 5468697320656469746F722773206C696E65206D616E616765722E
 		Private mLines As LineManager
 	#tag EndProperty
 
+	#tag Property, Flags = &h21, Description = 41206361636865206F6620746865206C6173742076616C75652072657475726E65642062792074686520604D617856697369626C654C696E657360206D6574686F642E204974277320746865206D6178696D756D206E756D626572206F66206C696E65732076697369626C6520696E207468652063616E7661732E2049742077696C6C206E65766572206265206D6F7265207468616E20746865206E756D626572206F66206C696E657320696E206578697374656E63652E
+		Private mMaxVisibleLines As Integer = 0
+	#tag EndProperty
+
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
 		Private mReadOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F722074686520605363726F6C6C506F73586020636F6D70757465642070726F70657274792E
+		Private mScrollPosX As Integer = 0
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 546865205920636F6F7264696E617465207468652063616E766173206C617374207363726F6C6C656420746F2E
+		Private mScrollPosY As Integer
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 546865206E756D626572206F6620636861726163746572732063757272656E746C792073656C65637465642E
@@ -460,12 +820,12 @@ Inherits NSScrollViewCanvas
 		Private mTextColor As ColorGroup
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 54686520746578742073697A652E
-		Private mTextSize As Integer
-	#tag EndProperty
-
 	#tag Property, Flags = &h21, Description = 5468652066756C6C2074657874206F662074686520646F63756D656E742E
 		Private mTextStorage As ITextStorage
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F72207468652060566572746963616C4C696E6550616464696E676020636F6D70757465642070726F70657274792E
+		Private mVerticalLinePadding As Integer
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 49662054727565207468656E2074686520656469746F722077696C6C2077726170206C696E657320746F20666974207468652063757272656E7420656469746F722077696474682E204261636B732074686520636F6D70757465642060576F726457726170602070726F70657274792E
@@ -490,6 +850,28 @@ Inherits NSScrollViewCanvas
 			End Set
 		#tag EndSetter
 		ReadOnly As Boolean
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 54686520686F72697A6F6E74616C207363726F6C6C206F66667365742E203020697320626173656C696E652E20506F73697469766520696E64696361746573207363726F6C6C696E6720746F207468652072696768742E
+		#tag Getter
+			Get
+			  Return mScrollPosX
+			  
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  /// Update how much the canvas is horizontally scrolled.
+			  
+			  // Compute the maximum allowed X scroll position.
+			  Var maxScrollPosX As Integer = Max(mDocumentWidth - Self.Width, 0)
+			  
+			  // Set the value of ScrollPosX, not exceeding the maximum value.
+			  mScrollPosX = Clamp(value, 0, maxScrollPosX)
+			  
+			End Set
+		#tag EndSetter
+		ScrollPosX As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636861726163746572732063757272656E746C792073656C65637465642E
@@ -556,25 +938,6 @@ Inherits NSScrollViewCanvas
 		TextSelected As Boolean
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 54686520746578742073697A652E
-		#tag Getter
-			Get
-			  Return mTextSize
-			End Get
-		#tag EndGetter
-		#tag Setter
-			Set
-			  If mTextSize = value Then Return
-			  
-			  mTextSize = value
-			  
-			  Redraw
-			  
-			End Set
-		#tag EndSetter
-		TextSize As Integer
-	#tag EndComputedProperty
-
 	#tag ComputedProperty, Flags = &h0, Description = 5468652066756C6C207465787420696E2074686520646F63756D656E742E
 		#tag Getter
 			Get
@@ -619,6 +982,23 @@ Inherits NSScrollViewCanvas
 		Private UndoIDThreshold As Integer
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620706978656C7320746F207061642061206C696E65206F6E2069747320746F7020616E6420626F74746F6D2065646765732E
+		#tag Getter
+			Get
+			  Return mVerticalLinePadding
+			End Get
+		#tag EndGetter
+		#tag Setter
+			Set
+			  mVerticalLinePadding = value
+			  NeedsFullRedraw = True
+			  Refresh
+			  
+			End Set
+		#tag EndSetter
+		VerticalLinePadding As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 49662054727565207468656E2074686520656469746F722077696C6C2077726170206C696E657320746F20666974207468652063757272656E7420656469746F722077696474682E
 		#tag Getter
 			Get
@@ -638,6 +1018,15 @@ Inherits NSScrollViewCanvas
 		WordWrap As Boolean
 	#tag EndComputedProperty
 
+
+	#tag Constant, Name = BLOCK_GUTTER_MIN_WIDTH, Type = Double, Dynamic = False, Default = \"18", Scope = Public, Description = 546865206D696E696D616C207769647468206F66207468652067757474657220636F6E7461696E696E672074686520626C6F636B20696E64696361746F72732E
+	#tag EndConstant
+
+	#tag Constant, Name = MIN_LINE_NUMBER_WIDTH, Type = Double, Dynamic = False, Default = \"20", Scope = Private, Description = 4966206C696E65206E756D6265727320617265202A6E6F742A20647261776E2C207468697320697320746865206D696E696D756D207769647468206F6620746865206C696E65206E756D6265722073656374696F6E206F6620746865206775747465722E
+	#tag EndConstant
+
+	#tag Constant, Name = RIGHT_SCROLL_PADDING, Type = Double, Dynamic = False, Default = \"40", Scope = Private, Description = 467564676520666163746F7220666F722070616464696E6720746865207269676874206F66206C696E6573207768656E20686F72697A6F6E74616C207363726F6C6C696E672E
+	#tag EndConstant
 
 	#tag Constant, Name = TYPING_SPEED_TICKS, Type = Double, Dynamic = False, Default = \"20", Scope = Private, Description = 546865206E756D626572206F66207469636B73206265747765656E206B65797374726F6B657320746F207374696C6C20626520636F6E73696465726564206173206163746976656C7920747970696E672E
 	#tag EndConstant
@@ -869,7 +1258,7 @@ Inherits NSScrollViewCanvas
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="TextSize"
+			Name="FontSize"
 			Visible=true
 			Group="Appearance"
 			InitialValue="12"
@@ -946,6 +1335,70 @@ Inherits NSScrollViewCanvas
 			Group="Behavior"
 			InitialValue="True"
 			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="WordWrap"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="FirstVisibleLine"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ScrollPosX"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LineNumberFontSize"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="DisplayLineNumbers"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="VerticalLinePadding"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LongestLineChanged"
+			Visible=false
+			Group="Behavior"
+			InitialValue="False"
+			Type="Boolean"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ColumnsPerIndent"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior

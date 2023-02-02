@@ -497,17 +497,17 @@ Inherits DesktopTextInputCanvas
 	#tag EndConstant
 
 
-	#tag Structure, Name = CGPoint, Flags = &h21
+	#tag Structure, Name = CGPoint, Flags = &h0
 		X As CGFloat
 		Y As CGFloat
 	#tag EndStructure
 
-	#tag Structure, Name = CGRect, Flags = &h21
+	#tag Structure, Name = CGRect, Flags = &h0
 		Origin As CGPoint
 		RectSize As CGSize
 	#tag EndStructure
 
-	#tag Structure, Name = CGSize, Flags = &h21
+	#tag Structure, Name = CGSize, Flags = &h0
 		Width As CGFloat
 		Height As CGFloat
 	#tag EndStructure
@@ -671,14 +671,6 @@ Inherits DesktopTextInputCanvas
 			InitialValue=""
 			Type="Integer"
 			EditorType="Integer"
-		#tag EndViewProperty
-		#tag ViewProperty
-			Name="HasVerticalScrollbar"
-			Visible=false
-			Group="Behavior"
-			InitialValue="True"
-			Type="Boolean"
-			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Class

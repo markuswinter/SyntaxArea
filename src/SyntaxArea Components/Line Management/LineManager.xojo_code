@@ -9,7 +9,9 @@ Protected Class LineManager
 		  mOwner = New WeakRef(owner)
 		  
 		  // The line manager must always have at least one line.
-		  mLines.Add(New TextLine(0, 0))
+		  mLines.Add(New TextLine(0, 0, Self))
+		  
+		  mLongestLine = mLines(0)
 		  
 		End Sub
 	#tag EndMethod
@@ -31,53 +33,63 @@ Protected Class LineManager
 		  /// Inserts `s` at `offset`.
 		  /// Assumes any newline characters in `s` have been standardised to UNIX.
 		  
-		  #Pragma Warning "BROKEN:"
-		  ' abcdef
-		  ' gh
-		  ' 
-		  ' Produces two lines, the first has length 9, the second length 0
-		  
 		  // Get the index of the line containing `offset`.
 		  Var originalLineIndex As Integer = LineIndexForOffset(offset)
 		  Var line As TextLine = mLines(originalLineIndex)
 		  
+		  // Cache the length of the current longest line in case we modify it.
+		  Var longestLineLength As Integer = mLongestLine.ColumnLength
+		  
 		  // Cache the length of the string.
 		  Var sLength As Integer = s.Length
 		  
-		  If Not s.Contains(EndOfLine.UNIX) Then
-		    
-		    // Increase the length of the affected line and fix the offsets of subsequent lines.
-		    line.Length = line.Length + sLength
-		    FixStartOffsets(originalLineIndex + 1, sLength)
-		    
-		  Else
-		    // The string contains at least one new line.
-		    // Split the string into parts based on newlines.
-		    Var parts() As String = s.ToArray(EndOfLine.UNIX)
-		    
-		    // The first part is appended to the original line. +1 accounts for the newline character stripped by `ToArray`.
-		    line.Length = line.Length + parts(0).Length + 1
-		    
-		    // All parts *except* the last part are inserted as new lines.
-		    Var newLineIndex As Integer = originallineIndex + 1
-		    Var newLineStart As Integer = line.Finish + 1
-		    For i As Integer = 1 To parts.LastIndex - 1
-		      Var newLine As New TextLine(newLineStart, parts(i).Length)
-		      mlines.AddAt(newLineIndex, newLine)
-		      newLineIndex = newLineIndex + 1
-		      newLineStart = newLine.Finish + 1
-		    Next i
-		    
-		    // The last part is prepended to the next line.
-		    If newLineIndex > mLines.LastIndex Then
-		      mLines.Add(New TextLine(newLineStart, parts(parts.LastIndex).Length))
+		  If sLength = 1 And s = EndOfLine.UNIX Then
+		    // Common case: Insert a single newline at `offset` by breaking the line at `offset`
+		    // and inserting a new line with the characters following the break.
+		    Var newLineLength As Integer = line.Finish - offset
+		    line.Length = offset - line.Start
+		    mLines.AddAt(originalLineIndex + 1, New TextLine(offset + 1, newLineLength, Self))
+		    If Owner.WordWrap Then
+		      #Pragma Warning "TODO: Recompute lines"
 		    Else
-		      mLines(mLines.LastIndex).Start = newLineStart
-		      mLines(mLines.LastIndex).Length = mLines(mLines.LastIndex).Length + parts(parts.LastIndex).Length
+		      FixStartOffsets(originalLineIndex + 2, newLineLength)
 		    End If
+		    
+		  ElseIf Not s.Contains(EndOfLine.UNIX) Then
+		    // Insert text only on this line. 
+		    // We just need to increase the length of the affected line and fix the offsets of subsequent lines.
+		    line.Length = line.Length + sLength
+		    If Owner.WordWrap Then
+		      #Pragma Warning "TODO: Recompute lines"
+		    Else
+		      FixStartOffsets(originalLineIndex + 1, sLength)
+		    End If
+		  Else
+		    // Maximum effort. The string contains at least one new line.
+		    // Split the string into parts based on newlines.
+		    #Pragma Warning "TODO"
+		    Break
 		  End If
 		  
+		  // Has the longest line changed?
+		  If line.ColumnLength > longestLineLength Then
+		    mLongestLine = line
+		    Owner.LongestLineChanged = True
+		  End If
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206C696E652061742074686520302D62617365642060696E64657860206F72204E696C2E
+		Function LineAt(index As Integer) As TextLine
+		  /// Returns the line at the 0-based `index` or Nil.
+		  
+		  If index < 0 Or index > mLines.LastIndex Then
+		    Return Nil
+		  Else
+		    Return mLines(index)
+		  End If
+		  
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h21, Description = 52657475726E732074686520302D626173656420696E64657820696E20606D4C696E657360206F6620746865206C696E6520636F6E7461696E696E6720606F6666736574602E
@@ -112,22 +124,46 @@ Protected Class LineManager
 	#tag EndMethod
 
 
-	#tag Property, Flags = &h21, Description = 546865206C696E657320696E2074686520646F63756D656E742E
-		Private mLines() As TextLine
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E
+		#tag Getter
+			Get
+			  Return Owner.ColumnsPerIndent
+			End Get
+		#tag EndGetter
+		ColumnsPerIndent As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F66206C696E657320696E2074686520656469746F722E
+		#tag Getter
+			Get
+			  Return mLines.Count
+			  
+			End Get
+		#tag EndGetter
+		LineCount As Integer
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 5468652063757272656E74206C6F6E67657374206C696E652E20496E7465726E616C6C792063616368656420736F206E6F7420657870656E7369766520746F2063616C6C2E
+		#tag Getter
+			Get
+			  Return mLongestLine
+			  
+			End Get
+		#tag EndGetter
+		LongestLine As TextLine
+	#tag EndComputedProperty
+
+	#tag Property, Flags = &h0, Description = 546865206C696E657320696E2074686520646F63756D656E742E
+		mLines() As TextLine
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4261636B696E67206669656C6420666F722074686520604C6F6E676573744C696E65602070726F70657274792E
+		Private mLongestLine As TextLine
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 54686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
 		Private mOwner As WeakRef
 	#tag EndProperty
-
-	#tag ComputedProperty, Flags = &h21, Description = 4120636F6D7075746564207265666572656E636520746F20746865206F776E6572277320746578742073746F726167652E
-		#tag Getter
-			Get
-			  Return Owner.TextStorage
-			End Get
-		#tag EndGetter
-		Private mStorage As ITextStorage
-	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 41207765616B207265666572656E636520746F2074686520656469746F722074686174206F776E732074686973206C696E65206D616E616765722E
 		#tag Getter
@@ -141,6 +177,15 @@ Protected Class LineManager
 			End Get
 		#tag EndGetter
 		Owner As SyntaxArea
+	#tag EndComputedProperty
+
+	#tag ComputedProperty, Flags = &h0, Description = 4120636F6D7075746564207265666572656E636520746F20746865206F776E6572277320746578742073746F726167652E
+		#tag Getter
+			Get
+			  Return Owner.TextStorage
+			End Get
+		#tag EndGetter
+		Storage As ITextStorage
 	#tag EndComputedProperty
 
 

@@ -23,11 +23,14 @@ Begin DesktopWindow WinTest
    Title           =   "SyntaxArea Test"
    Type            =   0
    Visible         =   True
-   Width           =   1000
+   Width           =   1200
    Begin SyntaxArea Editor
       AutoDeactivate  =   True
       BackgroundColor =   &c1B1C1D00
+      BlinkCaret      =   True
       BorderColor     =   &c4F4F4F00
+      CaretPosition   =   0
+      CurrentUndoID   =   0
       Enabled         =   True
       FontName        =   "System"
       HasBottomBorder =   True
@@ -46,15 +49,75 @@ Begin DesktopWindow WinTest
       NeedsFullRedraw =   True
       ReadOnly        =   False
       Scope           =   0
+      SelectionLength =   0
+      SelectionStart  =   0
       TabIndex        =   0
       TabPanelIndex   =   0
       TabStop         =   True
       TextColor       =   &cFFFFFF00
+      TextSelected    =   False
       TextSize        =   12
       Tooltip         =   ""
       Top             =   20
+      Typing          =   False
       Visible         =   True
-      Width           =   960
+      Width           =   799
+   End
+   Begin DesktopListBox DebugListbox
+      AllowAutoDeactivate=   True
+      AllowAutoHideScrollbars=   True
+      AllowExpandableRows=   False
+      AllowFocusRing  =   True
+      AllowResizableColumns=   False
+      AllowRowDragging=   False
+      AllowRowReordering=   False
+      Bold            =   False
+      ColumnCount     =   4
+      ColumnWidths    =   ""
+      DefaultRowHeight=   -1
+      DropIndicatorVisible=   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      GridLineStyle   =   0
+      HasBorder       =   True
+      HasHeader       =   True
+      HasHorizontalScrollbar=   False
+      HasVerticalScrollbar=   True
+      HeadingIndex    =   -1
+      Height          =   680
+      Index           =   -2147483648
+      InitialValue    =   "Index	Start	Length	Finish"
+      Italic          =   False
+      Left            =   831
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   True
+      LockTop         =   True
+      RequiresSelection=   False
+      RowSelectionType=   0
+      Scope           =   0
+      TabIndex        =   1
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   20
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   349
+      _ScrollWidth    =   -1
+   End
+   Begin Timer DebugTimer
+      Enabled         =   True
+      Index           =   -2147483648
+      LockedInPosition=   False
+      Period          =   200
+      RunMode         =   2
+      Scope           =   0
+      TabPanelIndex   =   0
    End
 End
 #tag EndDesktopWindow
@@ -85,3 +148,16 @@ End
 
 #tag EndWindowCode
 
+#tag Events DebugTimer
+	#tag Event
+		Sub Action()
+		  DebugListbox.RemoveAllRows
+		  
+		  For i As Integer = 0 To Editor.Lines.mLines.LastIndex
+		    Var line As TextLine = Editor.Lines.mLines(i)
+		    DebugListbox.AddRow(i.ToString, line.Start.ToString, line.Length.ToString, line.Finish.ToString)
+		  Next i
+		  
+		End Sub
+	#tag EndEvent
+#tag EndEvents
