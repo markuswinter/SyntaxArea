@@ -21,6 +21,15 @@ Inherits NSScrollViewCanvas
 		  Select Case command
 		  Case CmdInsertNewline
 		    InsertCharacter(EndOfLine.UNIX, Nil) // Standardise the newline to UNIX.
+		    
+		    // =========================================
+		    // MOVING THE CARET
+		    // =========================================
+		  Case CmdMoveLeft, CmdMoveBackward
+		    ChangeSelection(mSelectionStart - 1, 0, True)
+		    
+		  Case CmdMoveRight, CmdMoveForward
+		    MoveCaretRight
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
@@ -206,17 +215,21 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h21, Description = 4368616E6765207468652063757272656E742073656C656374696F6E20746F20626567696E206174206073656C53746172746020616E6420657874656E6420666F72206073656C4C656E6774686020636861726163746572732E
-		Private Sub ChangeSelection(selStart As Integer, selLength As Integer)
+	#tag Method, Flags = &h21, Description = 4368616E6765207468652063757272656E742073656C656374696F6E20746F20626567696E206174206073656C53746172746020616E6420657874656E6420666F72206073656C4C656E6774686020636861726163746572732E20446F6573202A2A6E6F742A2A20696D6D6564696174656C79207265647261772062757420646F657320666C616720666F7220726564726177696E672E
+		Private Sub ChangeSelection(selStart As Integer, selLength As Integer, redrawImmediately As Boolean)
 		  /// Change the current selection to begin at `selStart` and extend for `selLength` characters.
+		  /// Does **not** immediately redraw but does flag for redrawing.
 		  
 		  mSelectionStart = Clamp(selStart, 0, TextStorage.Length)
 		  mSelectionLength = Clamp(selLength, 0, TextStorage.Length - mSelectionStart)
 		  
 		  mCurrentLine = Lines.LineAtOffset(mSelectionStart)
 		  
-		  NeedsFullRedraw = True
-		  
+		  If redrawImmediately Then
+		    Redraw
+		  Else
+		    NeedsFullRedraw = True
+		  End If
 		End Sub
 	#tag EndMethod
 
@@ -427,6 +440,20 @@ Inherits NSScrollViewCanvas
 		  
 		  Return mMaxVisibleLines
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 4D6F76657320746865206361726574206F6E6520706F736974696F6E20746F207468652072696768742E
+		Private Sub MoveCaretRight()
+		  /// Moves the caret one position to the right.
+		  
+		  If TextSelected Then
+		    // Move the caret to the selection's end location and clear the selection.
+		    ChangeSelection(SelectionEnd, 0, True)
+		  Else
+		    ChangeSelection(mSelectionStart + 1, 0, True)
+		  End If
+		  
+		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h21, Description = 5061696E74732074686520636172657420746F206067602061742074686520302D62617365642060706F73602E
@@ -1062,6 +1089,16 @@ Inherits NSScrollViewCanvas
 		ScrollPosX As Integer
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C75746520302D626173656420706F736974696F6E206F662074686520656E64206F66207468652073656C656374656420746578742E204966207468657265206973206E6F2073656C656374656420746578742074686973206973207468652073616D65206173206053656C656374696F6E5374617274602E
+		#tag Getter
+			Get
+			  Return mSelectionStart + mSelectionLength
+			  
+			End Get
+		#tag EndGetter
+		SelectionEnd As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636861726163746572732063757272656E746C792073656C65637465642E
 		#tag Getter
 			Get
@@ -1070,9 +1107,7 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  ChangeSelection(mSelectionStart, value)
-			  
-			  Redraw
+			  ChangeSelection(mSelectionStart, value, True)
 			  
 			End Set
 		#tag EndSetter
@@ -1087,9 +1122,7 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  ChangeSelection(value, 0)
-			  
-			  Redraw
+			  ChangeSelection(value, 0, True)
 			  
 			End Set
 		#tag EndSetter

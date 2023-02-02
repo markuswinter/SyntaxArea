@@ -29,7 +29,8 @@ Begin DesktopWindow WinTest
       BackgroundColor =   &c17171700
       BlinkCaret      =   True
       BorderColor     =   &c4F4F4F00
-      CaretColor      =   &cC2000000
+      CaretBlinkPeriod=   500
+      CaretColor      =   &cFFFFFF00
       CaretPosition   =   0
       CaretType       =   ""
       ColumnsPerIndent=   2
