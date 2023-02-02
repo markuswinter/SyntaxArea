@@ -31,6 +31,7 @@ Begin DesktopWindow WinTest
       BorderColor     =   &c4F4F4F00
       CaretBlinkPeriod=   500
       CaretColor      =   &cFFFFFF00
+      CaretColumn     =   0
       CaretPosition   =   0
       CaretType       =   ""
       ColumnsPerIndent=   2
@@ -61,6 +62,7 @@ Begin DesktopWindow WinTest
       ReadOnly        =   False
       Scope           =   0
       ScrollPosX      =   0
+      SelectionEnd    =   0
       SelectionLength =   0
       SelectionStart  =   0
       TabIndex        =   0
@@ -99,7 +101,7 @@ Begin DesktopWindow WinTest
       HasHorizontalScrollbar=   False
       HasVerticalScrollbar=   True
       HeadingIndex    =   -1
-      Height          =   680
+      Height          =   568
       Index           =   -2147483648
       InitialValue    =   "Index	Start	Length	Finish"
       Italic          =   False
@@ -121,6 +123,7 @@ Begin DesktopWindow WinTest
       Underline       =   False
       Visible         =   True
       Width           =   349
+      _ScrollOffset   =   0
       _ScrollWidth    =   -1
    End
    Begin Timer DebugTimer
@@ -131,6 +134,53 @@ Begin DesktopWindow WinTest
       RunMode         =   2
       Scope           =   0
       TabPanelIndex   =   0
+   End
+   Begin DesktopTextArea Info
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      AllowSpellChecking=   True
+      AllowStyledText =   True
+      AllowTabs       =   False
+      BackgroundColor =   &cFFFFFF
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Format          =   ""
+      HasBorder       =   True
+      HasHorizontalScrollbar=   False
+      HasVerticalScrollbar=   True
+      Height          =   100
+      HideSelection   =   True
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   831
+      LineHeight      =   0.0
+      LineSpacing     =   1.0
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      MaximumCharactersAllowed=   0
+      Multiline       =   True
+      ReadOnly        =   True
+      Scope           =   0
+      TabIndex        =   2
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Text            =   ""
+      TextAlignment   =   0
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   600
+      Transparent     =   False
+      Underline       =   False
+      UnicodeMode     =   1
+      ValidationMask  =   ""
+      Visible         =   True
+      Width           =   349
    End
 End
 #tag EndDesktopWindow
@@ -171,6 +221,10 @@ End
 		    DebugListbox.AddRow(i.ToString, line.Start.ToString, line.Length.ToString, line.Finish.ToString)
 		  Next i
 		  
+		  Var s() As String
+		  s.Add("SelStart: " + Editor.SelectionStart.ToString)
+		  
+		  Info.Text = String.FromArray(s, EndOfLine)
 		End Sub
 	#tag EndEvent
 #tag EndEvents

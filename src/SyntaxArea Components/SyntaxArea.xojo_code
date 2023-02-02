@@ -29,7 +29,15 @@ Inherits NSScrollViewCanvas
 		    ChangeSelection(mSelectionStart - 1, 0, True)
 		    
 		  Case CmdMoveRight, CmdMoveForward
-		    MoveCaretRight
+		    Var newPos As Integer = If(TextSelected, SelectionEnd, mSelectionStart + 1)
+		    ChangeSelection(newPos, 0, True)
+		    
+		  Case CmdMoveUp
+		    MoveCaretUp
+		    
+		  Case CmdMoveDown
+		    MoveCaretDown
+		    
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
@@ -115,7 +123,7 @@ Inherits NSScrollViewCanvas
 		    // In order to see all of the lowest most line to be visible, we need to increase `ScrollY_` a bit.
 		    Var y As Integer = ScrollY_ + (mLineHeight * 2)
 		    mFirstVisibleLine = Floor(y / mLineHeight)
-		    mFirstVisibleLine = Clamp(mFirstVisibleLine, 0, Lines.LineCount - 1)
+		    mFirstVisibleLine = Clamp(mFirstVisibleLine, 0, Lines.LastIndex)
 		    NeedsFullRedraw = True
 		  Else
 		    mFirstVisibleLine = 0
@@ -394,7 +402,7 @@ Inherits NSScrollViewCanvas
 		  /// The line may be only partially visible.
 		  /// Relies on the cached value of the current line height.
 		  
-		  Return Min(mFirstVisibleLine + MaxVisibleLines(mLineHeight), Lines.LineCount - 1)
+		  Return Min(mFirstVisibleLine + MaxVisibleLines(mLineHeight), Lines.LastIndex)
 		  
 		End Function
 	#tag EndMethod
@@ -442,15 +450,70 @@ Inherits NSScrollViewCanvas
 		End Function
 	#tag EndMethod
 
-	#tag Method, Flags = &h21, Description = 4D6F76657320746865206361726574206F6E6520706F736974696F6E20746F207468652072696768742E
-		Private Sub MoveCaretRight()
-		  /// Moves the caret one position to the right.
+	#tag Method, Flags = &h21, Description = 4D6F7665732074686520636172657420646F776E2061206C696E652E
+		Private Sub MoveCaretDown()
+		  /// Moves the caret down a line.
 		  
 		  If TextSelected Then
-		    // Move the caret to the selection's end location and clear the selection.
+		    // Move the caret to the end of the selected text and clear the selection.
 		    ChangeSelection(SelectionEnd, 0, True)
 		  Else
-		    ChangeSelection(mSelectionStart + 1, 0, True)
+		    If mCurrentLine.Index = Lines.LastIndex Then
+		      // Pressing down on the last line moves to the end of the document.
+		      ChangeSelection(TextStorage.Length, 0, True)
+		    Else
+		      // Move the caret down one line to the same (or closest) column.
+		      MoveCaretToColumn(mCurrentLine.Index + 1, CaretColumn, True)
+		    End If
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 4D6F7665732074686520636172657420746F207468652060636F6C756D6E60206F6E2074686520737065636966696564206C696E652028302D62617365642060696E64657860292E20546869732077696C6C2072656D6F766520616E792063757272656E742073656C656374696F6E2E
+		Private Sub MoveCaretToColumn(lineIndex As Integer, column As Integer, redrawImmediately As Boolean)
+		  /// Moves the caret to the `column` on the specified line (0-based `index`).
+		  /// This will remove any current selection.
+		  /// 
+		  /// Raises an `InvalidArgumentException` if `lineIndex` is out of range.
+		  /// If `column` is greater than the number of columns in the target line then 
+		  /// it moves the caret to the end of the target line.
+		  
+		  // Sanity checks.
+		  If lineIndex < 0 Or lineIndex > Lines.LastIndex Then
+		    Raise New InvalidArgumentException("Invalid line index to move to.")
+		  End If
+		  If column < 0 Then
+		    Raise New InvalidArgumentException("Invalid target column. Must be >= 0")
+		  End If
+		  
+		  // Get the target line to move to.
+		  Var targetLine As TextLine = Lines.LineAtIndex(lineIndex)
+		  
+		  // If the column to move to is greater than the number of columns in the 
+		  // target line, move to the end of the target line.
+		  If column > targetLine.Length Then column = targetLine.Length
+		  
+		  // Update the caret position.
+		  ChangeSelection(targetLine.Start + column, 0, redrawImmediately)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 4D6F766573207468652063617265742075702061206C696E652E
+		Private Sub MoveCaretUp()
+		  /// Moves the caret up a line.
+		  
+		  If TextSelected Then
+		    ChangeSelection(mSelectionStart, 0, True)
+		  Else
+		    If mCurrentLine.Index = 0 Then
+		      // When on the first line, pressing up moves to the beginning of the document.
+		      ChangeSelection(0, 0, True)
+		    Else
+		      // Move the caret up one line to the same (or closest) column.
+		      MoveCaretToColumn(mCurrentLine.Index - 1, CaretColumn, True)
+		    End If
 		  End If
 		  
 		End Sub
@@ -601,14 +664,14 @@ Inherits NSScrollViewCanvas
 		CaretColor As ColorGroup
 	#tag EndComputedProperty
 
-	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C75746520302D626173656420636172657420706F736974696F6E2E
+	#tag ComputedProperty, Flags = &h0, Description = 5468652063757272656E7420302D626173656420636F6C756D6E20746861742074686520636172657420697320696E20286F722074686520636F6C756D6E2074686174207468652063757272656E742073656C656374696F6E20626567696E73206174292E
 		#tag Getter
 			Get
-			  Return mCaretPosition
+			  Return mSelectionStart - mCurrentLine.Start
 			  
 			End Get
 		#tag EndGetter
-		CaretPosition As Integer
+		CaretColumn As Integer
 	#tag EndComputedProperty
 
 	#tag ComputedProperty, Flags = &h0, Description = 5468652074797065206F66206361726574207468652063616E7661732073686F756C64207573652E
@@ -719,7 +782,7 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  mFirstVisibleLine = Clamp(value, 0, Lines.LineCount - 1)
+			  mFirstVisibleLine = Clamp(value, 0, Lines.LastIndex)
 			  NeedsFullRedraw = True
 			  
 			End Set
@@ -897,10 +960,6 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 54686520636F6C6F7572206F66207468652063617265742E204261636B732074686520604361726574436F6C6F726020636F6D70757465642070726F70657274792E
 		Private mCaretColor As ColorGroup
-	#tag EndProperty
-
-	#tag Property, Flags = &h21, Description = 546865206F2D626173656420706F736974696F6E206F66207468652063617265742E2053657420746F20602D316020696620746865206361726574206973206E6F742076697369626C652E
-		Private mCaretPosition As Integer = 0
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 546865206361726574207374796C652E204261636B696E67206669656C6420666F722074686520604361726574547970656020636F6D70757465642070726F70657274792E
@@ -1546,14 +1605,6 @@ Inherits NSScrollViewCanvas
 			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
-			Name="CaretPosition"
-			Visible=false
-			Group="Behavior"
-			InitialValue=""
-			Type="Integer"
-			EditorType=""
-		#tag EndViewProperty
-		#tag ViewProperty
 			Name="BlinkCaret"
 			Visible=true
 			Group="Behavior"
@@ -1665,6 +1716,22 @@ Inherits NSScrollViewCanvas
 			Visible=true
 			Group="Behavior"
 			InitialValue="500"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="SelectionEnd"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretColumn"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty

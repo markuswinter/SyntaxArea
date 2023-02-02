@@ -157,6 +157,16 @@ Protected Class LineManager
 		Editor As SyntaxArea
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 54686520696E646578206F6620746865206C617374206C696E652E
+		#tag Getter
+			Get
+			  Return mLines.LastIndex
+			  
+			End Get
+		#tag EndGetter
+		LastIndex As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F66206C696E657320696E2074686520656469746F722E
 		#tag Getter
 			Get
@@ -237,6 +247,22 @@ Protected Class LineManager
 			Visible=true
 			Group="Position"
 			InitialValue="0"
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="ColumnsPerIndent"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LineCount"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
 			Type="Integer"
 			EditorType=""
 		#tag EndViewProperty
