@@ -93,6 +93,37 @@ Implements ITextStorage
 		End Function
 	#tag EndMethod
 
+	#tag Method, Flags = &h21, Description = 52657475726E7320612064696374696F6E61727920636F6E7461696E696E672061206E6F6E2D65786861757374697665206C697374206F66206E6F6E2D616C7068616E756D6572696320636861726163746572732E
+		Private Function NonAlphaCharactersDictionary() As Dictionary
+		  /// Returns a dictionary containing a non-exhaustive list of non-alphanumeric characters.
+		  
+		  Var d As New Dictionary
+		  
+		  // ASCII 0 - 47.
+		  For i As Integer = 0 To 47
+		    d.Value(Chr(i)) = Nil
+		  Next i
+		  
+		  // ASCII 58 - 64.
+		  For i As Integer = 58 To 64
+		    d.Value(Chr(i)) = Nil
+		  Next i
+		  
+		  // 91 - 96.
+		  For i As Integer = 91 To 96
+		    d.Value(Chr(i)) = Nil
+		  Next i
+		  
+		  // 123 - 127.
+		  For i As Integer = 123 To 127
+		    d.Value(Chr(i)) = Nil
+		  Next i
+		  
+		  Return d
+		  
+		End Function
+	#tag EndMethod
+
 	#tag Method, Flags = &h21, Description = 4D6F766573207468652067617020746F206120646966666572656E7420706C6163652077697468696E207468652073746F72616765207374727563747572652E
 		Private Sub PlaceGap(index As Integer)
 		  /// Moves the gap to a different place within the storage structure.
@@ -130,6 +161,31 @@ Implements ITextStorage
 		  End If
 		  
 		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206F6666736574206F6620746865207374617274206F662074686520776F7264206265666F726520606F6666736574602E
+		Function PreviousWordStart(offset As Integer) As Integer
+		  /// Returns the offset of the start of the word before `offset`.
+		  ///
+		  /// Part of the `ITextStorage` interface.
+		  
+		  #Pragma Warning "BUG: Not quite right"
+		  
+		  // Bounds check.
+		  If offset < 0 Or offset > Length Then
+		    Raise New OutOfBoundsException("`offset` is out of bounds.")
+		  End If
+		  
+		  // Find the first non-alphanumeric character.
+		  For i As Integer = offset - 1 DownTo 0
+		    If NonAlphaCharacters.HasKey(CharacterAt(i)) Then
+		      Return i
+		    End If
+		  Next i
+		  
+		  Return 0
+		  
+		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0, Description = 52656D6F76657320606C656E6774686020636861726163746572732066726F6D2073746F7261676520626567696E6E696E672061742060696E646578602E2052657475726E732054727565206966207375636365737366756C206F722046616C7365206966206E6F7468696E67207761732072656D6F7665642E
@@ -293,6 +349,18 @@ Implements ITextStorage
 	#tag Property, Flags = &h21, Description = 4261636B732060476170456E64602E
 		Private mGapEnd As Integer
 	#tag EndProperty
+
+	#tag ComputedProperty, Flags = &h21, Description = 412064696374696F6E61727920636F6E7461696E696E67206E756D65726F7573206E6F6E2D616C7068616E756D6572696320636861726163746572732E2054686973206973206E6F7420657868617573746976652E204B6579203D206368617261637465722028537472696E67292C2056616C7565203D204E696C2E
+		#tag Getter
+			Get
+			  Static d As Dictionary = NonAlphaCharactersDictionary
+			  
+			  Return d
+			  
+			End Get
+		#tag EndGetter
+		Private NonAlphaCharacters As Dictionary
+	#tag EndComputedProperty
 
 
 	#tag Constant, Name = MAX_GAP_SIZE, Type = Double, Dynamic = False, Default = \"256", Scope = Private, Description = 546865206D6178696D756D2073697A65207468652067617020697320616C6C6F77656420746F2062652E

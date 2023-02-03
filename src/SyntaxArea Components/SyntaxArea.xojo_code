@@ -44,12 +44,21 @@ Inherits NSScrollViewCanvas
 		  Case CmdMoveToEndOfDocument, CmdScrollToEndOfDocument
 		    ChangeSelection(TextStorage.Length, 0, True)
 		    
-		  Case CmdScrollPageDown // `Fn-Down Arrow` on macOS.
+		  Case CmdScrollPageDown, CmdPageDown
 		    ScrollPageDown(True)
 		    
-		  Case CmdScrollPageUp // `Fn-Up Arrow` on macOS.
+		  Case CmdScrollPageUp, CmdPageUp
 		    ScrollPageUp(True)
 		    
+		  Case CmdMoveToBeginningOfLine, CmdMoveToLeftEndOfLine
+		    ChangeSelection(mCurrentLine.Start, 0, True)
+		    
+		  Case CmdMoveToEndOfLine, CmdMoveToRightEndOfLine
+		    ChangeSelection(mCurrentLine.Finish, 0, True)
+		    
+		  Case CmdMoveWordLeft
+		    Var newPos As Integer = If(TextSelected, mSelectionStart, TextStorage.PreviousWordStart(mSelectionStart))
+		    ChangeSelection(newPos, 0, True)
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
