@@ -151,6 +151,18 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndEvent
 
+	#tag Event , Description = 5468652063616E766173206973206F70656E696E672E
+		Sub Opening()
+		  If Self.Window <> Nil Then
+		    mScaleFactor = Self.Window.ScaleFactor
+		  Else
+		    mScaleFactor = 1
+		  End If
+		  
+		  RaiseEvent Opening
+		End Sub
+	#tag EndEvent
+
 	#tag Event
 		Sub Paint(g As Graphics, areas() As Xojo.Rect)
 		  #Pragma Unused areas
@@ -206,6 +218,14 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndEvent
 
+	#tag Event
+		Sub ScaleFactorChanged(newScaleFactor as Double)
+		  mNeedsNewBuffer = True
+		  
+		  mScaleFactor = newScaleFactor
+		End Sub
+	#tag EndEvent
+
 
 	#tag Method, Flags = &h21, Description = 5365747320746865207669736962696C697479206F66207468652063617265742E2043616C6C6564206D7920606D4361726574426C696E6B657254696D65722E416374696F6E602E
 		Private Sub CaretBlinkerTimerAction(sender As Timer)
@@ -253,7 +273,9 @@ Inherits NSScrollViewCanvas
 		Private Sub CheckBuffer()
 		  /// If `mBuffer` doesn't exist or needs recreating then it will be recreated.
 		  
-		  If mBuffer = Nil Or mNeedsNewBuffer Then
+		  If mBuffer = Nil Or mNeedsNewBuffer Or _
+		    mBuffer.Width <> Self.Width Or _
+		    mBuffer.Height <> Self.Height Then
 		    CreateNewBuffer
 		  End If
 		  
@@ -726,6 +748,11 @@ Inherits NSScrollViewCanvas
 		  
 		End Sub
 	#tag EndMethod
+
+
+	#tag Hook, Flags = &h0, Description = 54686520636F6E74726F6C206973206F70656E696E672E
+		Event Opening()
+	#tag EndHook
 
 
 	#tag ComputedProperty, Flags = &h0, Description = 54686520656469746F722773206261636B67726F756E6420636F6C6F75722E
@@ -1248,6 +1275,10 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
 		Private mReadOnly As Boolean = False
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4361636865642076616C7565206F6620746865207363616C6520666163746F7220647572696E6720746865206C617374205363616C65466163746F724368616E676564206576656E742E
+		Private mScaleFactor As Double = 1
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 54686520686F72697A6F6E74616C207363726F6C6C206F66667365742E203020697320626173656C696E652E20506F73697469766520696E64696361746573207363726F6C6C696E6720746F207468652072696768742E204261636B696E67206669656C6420666F722074686520605363726F6C6C506F73586020636F6D70757465642070726F70657274792E
