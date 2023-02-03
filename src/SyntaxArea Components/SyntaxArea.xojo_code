@@ -45,7 +45,10 @@ Inherits NSScrollViewCanvas
 		    ChangeSelection(TextStorage.Length, 0, True)
 		    
 		  Case CmdScrollPageDown // `Fn-Down Arrow` on macOS.
-		    ScrollPageDown(True, True)
+		    ScrollPageDown(True)
+		    
+		  Case CmdScrollPageUp // `Fn-Up Arrow` on macOS.
+		    ScrollPageUp(True)
 		    
 		  End Select
 		  
@@ -621,23 +624,16 @@ Inherits NSScrollViewCanvas
 	#tag EndMethod
 
 	#tag Method, Flags = &h0, Description = 5363726F6C6C73207468652063616E76617320646F776E2061207061676520616E64206F7074696F6E616C6C79206D6F7665732074686520636172657420646F776E2061732077656C6C2E
-		Sub ScrollPageDown(moveCaret As Boolean, redrawImmediately As Boolean)
+		Sub ScrollPageDown(redrawImmediately As Boolean)
 		  /// Scrolls the canvas down a page and optionally moves the caret down as well.
 		  ///
-		  /// If `moveCaret` is True then the caret will be moved down by the number of lines we scroll down.
 		  /// If `redrawImmediately` is False then the canvas will **not** be immediately invalidated.
-		  
-		  #Pragma Warning "BUG: Not working"
 		  
 		  // Cache the last fully visible line number as it's computed.
 		  Var lastVisibleIndex As Integer = LastFullyVisibleLineIndex
 		  
 		  // No need to scroll if the last line is already visible.
 		  If lastVisibleIndex = Lines.LastIndex Then
-		    If moveCaret Then
-		      // Move the caret to the end of the document.
-		      ChangeSelection(TextStorage.Length, 0, redrawImmediately)
-		    End If
 		    Return
 		  End If
 		  
@@ -648,23 +644,52 @@ Inherits NSScrollViewCanvas
 		    // There are sufficient lines off screen that we can scroll an entire page.
 		    linesToScroll = mMaxVisibleLines
 		  Else
-		    linesToScroll = Lines.LastIndex - lastVisibleIndex
+		    linesToScroll = Lines.LineCount - lastVisibleIndex
 		  End If
 		  
-		  If moveCaret Then
-		    // Move the caret down by the same number of lines, to the same column position.
-		    // The `MoveCaretToColumn` method will invalidate the canvas for us.
-		    MoveCaretToColumn(Min(mCurrentLine.Index + linesToScroll, Lines.LastLine.Index), _
-		    CaretColumn, redrawImmediately)
+		  // Adjust the first visible line.
+		  FirstVisibleLine = FirstVisibleLine + linesToScroll
+		  
+		  If redrawImmediately Then
 		  Else
-		    FirstVisibleLine = FirstVisibleLine + linesToScroll
-		    If redrawImmediately Then
-		    Else
-		      NeedsFullRedraw = True
-		      Redraw
-		    End If
+		    NeedsFullRedraw = True
+		    Redraw
 		  End If
 		  
+		  
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5363726F6C6C73207468652063616E7661732075702061207061676520616E64206F7074696F6E616C6C79206D6F766573207468652063617265742075702061732077656C6C2E
+		Sub ScrollPageUp(redrawImmediately As Boolean)
+		  /// Scrolls the canvas up a page and optionally moves the caret up as well.
+		  ///
+		  /// If `redrawImmediately` is False then the canvas will not be immediately invalidated.
+		  
+		  // No need to scroll if the first line is already visible.
+		  If mFirstVisibleLine = 0 Then
+		    Return
+		  End If
+		  
+		  // The maximum number of lines we can ever scroll up is the number of lines that 
+		  // are visible on the screen. However, we will never scroll past the first line.
+		  Var linesToScroll As Integer
+		  If mFirstVisibleLine - mMaxVisibleLines >= 1 Then
+		    // There are sufficient lines off screen that we can scroll an entire page up.
+		    linesToScroll = mMaxVisibleLines
+		  Else
+		    linesToScroll = mFirstVisibleLine - 1
+		  End If
+		  
+		  // Adjust the first visible line.
+		  FirstVisibleLine = mFirstVisibleLine - linesToScroll
+		  
+		  If redrawImmediately Then
+		    Redraw
+		  Else
+		    NeedsFullRedraw = True
+		  End If
 		  
 		End Sub
 	#tag EndMethod
