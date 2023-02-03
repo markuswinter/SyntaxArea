@@ -38,6 +38,15 @@ Inherits NSScrollViewCanvas
 		  Case CmdMoveDown
 		    MoveCaretDown
 		    
+		  Case CmdMoveToBeginningOfDocument, CmdScrollToBeginningOfDocument
+		    ChangeSelection(0, 0, True)
+		    
+		  Case CmdMoveToEndOfDocument, CmdScrollToEndOfDocument
+		    ChangeSelection(TextStorage.Length, 0, True)
+		    
+		  Case CmdScrollPageDown // `Fn-Down Arrow` on macOS.
+		    ScrollPageDown(True, True)
+		    
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
@@ -146,8 +155,7 @@ Inherits NSScrollViewCanvas
 		Sub Paint(g As Graphics, areas() As Xojo.Rect)
 		  #Pragma Unused areas
 		  
-		  // Cache this graphics context.
-		  mPaintGraphics = g
+		  CheckBuffer
 		  
 		  // Update the width of the document.
 		  #Pragma Warning "OPTIMISE: This doesn't need calling on each refresh"
@@ -241,6 +249,17 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h21, Description = 496620606D4275666665726020646F65736E2774206578697374206F72206E656564732072656372656174696E67207468656E2069742077696C6C206265207265637265617465642E
+		Private Sub CheckBuffer()
+		  /// If `mBuffer` doesn't exist or needs recreating then it will be recreated.
+		  
+		  If mBuffer = Nil Or mNeedsNewBuffer Then
+		    CreateNewBuffer
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h21, Description = 52657475726E7320746865207061737365642076616C756520636C616D706564206265747765656E20606D696E696D756D6020616E6420606D6178696D756D602E
 		Private Function Clamp(value As Double, minimum As Double, maximum As Double) As Double
 		  /// Returns the passed value clamped between `minimum` and `maximum`.
@@ -315,6 +334,29 @@ Inherits NSScrollViewCanvas
 		  AddHandler mCaretBlinkerTimer.Action, AddressOf CaretBlinkerTimerAction
 		  
 		  mCurrentLine = Lines.LineAtIndex(0)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 437265617465732061206E657720477261706869637320636F6E74657874206F66207468652073616D6520776964746820616E64206865696768742061732074686520656469746F7220616E642073746F72657320697420696E20606D427566666572602E
+		Private Sub CreateNewBuffer()
+		  /// Creates a new Graphics context of the same width and height as the editor and stores it
+		  /// in `mBuffer`.
+		  
+		  mNeedsNewBuffer = False
+		  
+		  Var p As Picture
+		  If Self.Window <> Nil Then
+		    p = Self.Window.BitmapForCaching(Self.Width, Self.Height)
+		  Else
+		    p = New Picture(Self.Width, Self.Height)
+		    mNeedsNewBuffer = True
+		  End If
+		  
+		  mBuffer = p.Graphics
+		  
+		  mBuffer.FontName = FontName
+		  mBuffer.FontSize = FontSize
 		  
 		End Sub
 	#tag EndMethod
@@ -473,7 +515,7 @@ Inherits NSScrollViewCanvas
 	#tag Method, Flags = &h21, Description = 4D6F7665732074686520636172657420746F207468652060636F6C756D6E60206F6E2074686520737065636966696564206C696E652028302D62617365642060696E64657860292E20546869732077696C6C2072656D6F766520616E792063757272656E742073656C656374696F6E2E
 		Private Sub MoveCaretToColumn(lineIndex As Integer, column As Integer, redrawImmediately As Boolean)
 		  /// Moves the caret to the `column` on the specified line (0-based `index`).
-		  /// This will remove any current selection.
+		  /// This will remove any current selection and scroll the canvas if needed.
 		  /// 
 		  /// Raises an `InvalidArgumentException` if `lineIndex` is out of range.
 		  /// If `column` is greater than the number of columns in the target line then 
@@ -497,6 +539,7 @@ Inherits NSScrollViewCanvas
 		  // Update the caret position.
 		  ChangeSelection(targetLine.Start + column, 0, redrawImmediately)
 		  
+		  ScrollToCaret(redrawImmediately)
 		End Sub
 	#tag EndMethod
 
@@ -555,6 +598,114 @@ Inherits NSScrollViewCanvas
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 5363726F6C6C73207468652063616E76617320646F776E2061207061676520616E64206F7074696F6E616C6C79206D6F7665732074686520636172657420646F776E2061732077656C6C2E
+		Sub ScrollPageDown(moveCaret As Boolean, redrawImmediately As Boolean)
+		  /// Scrolls the canvas down a page and optionally moves the caret down as well.
+		  ///
+		  /// If `moveCaret` is True then the caret will be moved down by the number of lines we scroll down.
+		  /// If `redrawImmediately` is False then the canvas will **not** be immediately invalidated.
+		  
+		  #Pragma Warning "BUG: Not working"
+		  
+		  // Cache the last fully visible line number as it's computed.
+		  Var lastVisibleIndex As Integer = LastFullyVisibleLineIndex
+		  
+		  // No need to scroll if the last line is already visible.
+		  If lastVisibleIndex = Lines.LastIndex Then
+		    If moveCaret Then
+		      // Move the caret to the end of the document.
+		      ChangeSelection(TextStorage.Length, 0, redrawImmediately)
+		    End If
+		    Return
+		  End If
+		  
+		  // The maximum number of lines we can ever scroll down is the number of lines that 
+		  // are visible on the screen. However, we will never scroll past the last line.
+		  Var linesToScroll As Integer
+		  If lastVisibleIndex + mMaxVisibleLines <= Lines.LastIndex Then
+		    // There are sufficient lines off screen that we can scroll an entire page.
+		    linesToScroll = mMaxVisibleLines
+		  Else
+		    linesToScroll = Lines.LastIndex - lastVisibleIndex
+		  End If
+		  
+		  If moveCaret Then
+		    // Move the caret down by the same number of lines, to the same column position.
+		    // The `MoveCaretToColumn` method will invalidate the canvas for us.
+		    MoveCaretToColumn(Min(mCurrentLine.Index + linesToScroll, Lines.LastLine.Index), _
+		    CaretColumn, redrawImmediately)
+		  Else
+		    FirstVisibleLine = FirstVisibleLine + linesToScroll
+		    If redrawImmediately Then
+		    Else
+		      NeedsFullRedraw = True
+		      Redraw
+		    End If
+		  End If
+		  
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5363726F6C6C73207468652063616E76617320286966206E65636573736172792920746F207468652063757272656E7420636172657420706F736974696F6E2E
+		Sub ScrollToCaret(redrawImmediately As Boolean)
+		  /// Scrolls the canvas (if necessary) to the current caret position.
+		  
+		  #Pragma Warning "TODO: Check this actually works as I think it should"
+		  
+		  CheckBuffer
+		  
+		  #If TargetMacOS
+		    // Get the absolute X coordinate of the caret.
+		    Var caretX As Integer = CaretXCoordinate
+		    
+		    // Do we need to scroll horizontally?
+		    If mSelectionStart = mCurrentLine.Start Then
+		      // Ensure we can see the gutter when the caret is at the beginning of the line.
+		      ScrollPosX = 0
+		    ElseIf caretX - mScrollPosX + RIGHT_SCROLL_PADDING > Self.Width Then
+		      // Scroll right.
+		      Var widthDiff As Double = mBuffer.Width - Self.Width
+		      ScrollPosX = Clamp(mScrollPosX + caretX - Self.Width + RIGHT_SCROLL_PADDING, 0, widthDiff)
+		    ElseIf caretX < mScrollPosX Then
+		      // Scroll left.
+		      ScrollPosX = Max(caretX - LEFT_SCROLL_PADDING, 0)
+		    ElseIf mScrollPosX > mBuffer.Width - Me.Width Then
+		      ScrollPosX = Max(caretX - LEFT_SCROLL_PADDING, 0)
+		    End If
+		    
+		    // Do we need to scroll vertically?
+		    If mCurrentLine.Index < FirstVisibleLine Or mCurrentLine.Index > LastFullyVisibleLineIndex Then
+		      If mCurrentLine.Index = LastFullyVisibleLineIndex + 1 Then
+		        // Scroll down a single line.
+		        mScrollPosY = mScrollPosY + mLineHeight
+		      ElseIf mCurrentLine.Index = FirstVisibleLine - 1 Then
+		        // Scroll up a single line.
+		        mScrollPosY = mScrollPosY - mLineHeight
+		      Else
+		        mScrollPosY = mCurrentLine.Index * mLineHeight
+		      End If
+		      mScrollPosY = Clamp(mScrollPosY, 0, (Lines.LineCount * mLineHeight) - mLineHeight)
+		    End If
+		    
+		    // Scroll.
+		    ScrollToPoint(ScrollPosX, mScrollPosY)
+		    
+		    // Update ScrollPosY.
+		    mScrollPosY = ScrollY_
+		    
+		    If redrawImmediately Then
+		      Redraw
+		    Else
+		      NeedsFullRedraw = True
+		    End If
+		    
+		  #Else
+		    #Pragma Warning "TODO"
+		  #EndIf
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h21, Description = 436F6D70757465732028427952656629207468652063616E76617320782C207920636F6F7264696E61746573206174207468652063757272656E7420302D6261736564206F66667365742E
 		Private Sub XYAtOffset(offset As Integer, ByRef x As Double, ByRef y As Double)
 		  /// Computes (ByRef) the canvas x, y coordinates at the current 0-based offset.
@@ -563,21 +714,12 @@ Inherits NSScrollViewCanvas
 		  
 		  Var line As TextLine = Lines.LineAtOffset(offset)
 		  
-		  Var g As Graphics = mPaintGraphics
-		  If g = Nil Then
-		    Var p As Picture
-		    If Self.Window <> Nil Then
-		      p = Self.Window.BitmapForCaching(1, 1)
-		    Else
-		      p = New Picture(1, 1)
-		    End If
-		    g = p.Graphics
-		  End If
+		  CheckBuffer
 		  
 		  // X
 		  Var tempX As Integer = mGutterWidth + LINE_CONTENTS_LEFT_PADDING + _
-		  line.IndentWidth(g.TextWidth("_"))
-		  x = tempX + line.WidthToOffset(offset, g)
+		  line.IndentWidth(mBuffer.TextWidth("_"))
+		  x = tempX + line.WidthToOffset(offset, mBuffer)
 		  
 		  // Y
 		  y = (line.Index - mFirstVisibleLine) * mLineHeight
@@ -691,6 +833,18 @@ Inherits NSScrollViewCanvas
 		CaretType As CaretTypes
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 546865206162736F6C757465205820636F6F7264696E617465206F6620746865206361726574206174206974732063757272656E7420706F736974696F6E2028636F6D707574656420616E6420657870656E73697665292E
+		#tag Getter
+			Get
+			  CheckBuffer
+			  
+			  Return mGutterWidth + LINE_CONTENTS_LEFT_PADDING + _
+			  mCurrentLine.WidthToOffset(mSelectionStart, mBuffer)
+			End Get
+		#tag EndGetter
+		CaretXCoordinate As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206E756D626572206F6620636F6C756D6E732065616368206C6576656C206F6620696E64656E746174696F6E206973206571756976616C656E7420746F2E
 		#tag Getter
 			Get
@@ -802,6 +956,9 @@ Inherits NSScrollViewCanvas
 			  
 			  mFontName = value
 			  
+			  CheckBuffer
+			  mBuffer.FontName = mFontName
+			  
 			  Redraw
 			  
 			End Set
@@ -820,6 +977,9 @@ Inherits NSScrollViewCanvas
 			  If mFontSize = value Then Return
 			  
 			  mFontSize = value
+			  
+			  CheckBuffer
+			  mBuffer.FontSize = mFontSize
 			  
 			  Redraw
 			  
@@ -911,6 +1071,18 @@ Inherits NSScrollViewCanvas
 		HighlightCurrentLine As Boolean
 	#tag EndComputedProperty
 
+	#tag ComputedProperty, Flags = &h0, Description = 54686520696E646578206F6620746865206C617374202A66756C6C792A2076697369626C65206C696E652E
+		#tag Getter
+			Get
+			  // Find the index of the lowest-most fully visible line.
+			  Var index As Integer = mFirstVisibleLine + mMaxVisibleLines
+			  Return Min(index, Lines.LastIndex)
+			  
+			End Get
+		#tag EndGetter
+		LastFullyVisibleLineIndex As Integer
+	#tag EndComputedProperty
+
 	#tag ComputedProperty, Flags = &h0, Description = 546865206C696E65206E756D62657220666F6E742073697A652E204D757374206265206C657373207468616E2060466F6E7453697A65602E
 		#tag Getter
 			Get
@@ -952,6 +1124,10 @@ Inherits NSScrollViewCanvas
 
 	#tag Property, Flags = &h21, Description = 54686520656469746F72277320626F7264657220636F6C6F75722E204261636B732060426F72646572436F6C6F72602E
 		Private mBorderColor As ColorGroup
+	#tag EndProperty
+
+	#tag Property, Flags = &h21, Description = 4120677261706869637320636F6E74657874207468652073616D652073697A6520616E64207363616C652061732074686520677261706869637320636F6E7465787420696E2074686520605061696E7460206576656E742E205573656420666F7220737472696E672073697A696E6720616E64206865696768742F77696474682063616C63756C6174696F6E732E
+		Private mBuffer As Graphics
 	#tag EndProperty
 
 	#tag Property, Flags = &h21
@@ -1066,8 +1242,8 @@ Inherits NSScrollViewCanvas
 		Private mMaxVisibleLines As Integer = 0
 	#tag EndProperty
 
-	#tag Property, Flags = &h21, Description = 496E7465726E616C206361636865206F662074686520477261706869637320636F6E746578742066726F6D20746865206C61737420605061696E7460206576656E742E
-		Private mPaintGraphics As Graphics
+	#tag Property, Flags = &h21, Description = 49662054727565207468656E20606D427566666572602077696C6C2062652072656372656174656420696E20746865206E65787420605061696E7460206576656E742E
+		Private mNeedsNewBuffer As Boolean = True
 	#tag EndProperty
 
 	#tag Property, Flags = &h21, Description = 4261636B696E672073746F726520666F72207468652060526561644F6E6C796020636F6D70757465642070726F70657274792E
@@ -1300,6 +1476,9 @@ Inherits NSScrollViewCanvas
 
 
 	#tag Constant, Name = BLOCK_GUTTER_MIN_WIDTH, Type = Double, Dynamic = False, Default = \"18", Scope = Public, Description = 546865206D696E696D616C207769647468206F66207468652067757474657220636F6E7461696E696E672074686520626C6F636B20696E64696361746F72732E
+	#tag EndConstant
+
+	#tag Constant, Name = LEFT_SCROLL_PADDING, Type = Double, Dynamic = False, Default = \"50", Scope = Private, Description = 546865206E756D626572206F6620706978656C7320746F20706164206C656674207768656E207363726F6C6C696E67206C65667477617264732E
 	#tag EndConstant
 
 	#tag Constant, Name = LINE_CONTENTS_LEFT_PADDING, Type = Double, Dynamic = False, Default = \"5", Scope = Public, Description = 5468652070616464696E67206265747765656E2074686520726967687420677574746572206564676520616E6420746865206C696E6520636F6E74656E74732E
@@ -1729,6 +1908,22 @@ Inherits NSScrollViewCanvas
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="CaretColumn"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="LastFullyVisibleLineIndex"
+			Visible=false
+			Group="Behavior"
+			InitialValue=""
+			Type="Integer"
+			EditorType=""
+		#tag EndViewProperty
+		#tag ViewProperty
+			Name="CaretXCoordinate"
 			Visible=false
 			Group="Behavior"
 			InitialValue=""
