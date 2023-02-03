@@ -629,26 +629,12 @@ Inherits NSScrollViewCanvas
 		  ///
 		  /// If `redrawImmediately` is False then the canvas will **not** be immediately invalidated.
 		  
-		  // Cache the last fully visible line number as it's computed.
-		  Var lastVisibleIndex As Integer = LastFullyVisibleLineIndex
-		  
 		  // No need to scroll if the last line is already visible.
-		  If lastVisibleIndex = Lines.LastIndex Then
+		  If LastFullyVisibleLineIndex = Lines.LastIndex Then
 		    Return
 		  End If
 		  
-		  // The maximum number of lines we can ever scroll down is the number of lines that 
-		  // are visible on the screen. However, we will never scroll past the last line.
-		  Var linesToScroll As Integer
-		  If lastVisibleIndex + mMaxVisibleLines <= Lines.LastIndex Then
-		    // There are sufficient lines off screen that we can scroll an entire page.
-		    linesToScroll = mMaxVisibleLines
-		  Else
-		    linesToScroll = Lines.LineCount - lastVisibleIndex
-		  End If
-		  
-		  // Adjust the first visible line.
-		  FirstVisibleLine = FirstVisibleLine + linesToScroll
+		  FirstVisibleLine = FirstVisibleLine + mMaxVisibleLines
 		  
 		  If redrawImmediately Then
 		  Else
@@ -672,18 +658,7 @@ Inherits NSScrollViewCanvas
 		    Return
 		  End If
 		  
-		  // The maximum number of lines we can ever scroll up is the number of lines that 
-		  // are visible on the screen. However, we will never scroll past the first line.
-		  Var linesToScroll As Integer
-		  If mFirstVisibleLine - mMaxVisibleLines >= 1 Then
-		    // There are sufficient lines off screen that we can scroll an entire page up.
-		    linesToScroll = mMaxVisibleLines
-		  Else
-		    linesToScroll = mFirstVisibleLine - 1
-		  End If
-		  
-		  // Adjust the first visible line.
-		  FirstVisibleLine = mFirstVisibleLine - linesToScroll
+		  FirstVisibleLine = mFirstVisibleLine - mMaxVisibleLines
 		  
 		  If redrawImmediately Then
 		    Redraw
@@ -988,7 +963,7 @@ Inherits NSScrollViewCanvas
 		#tag EndGetter
 		#tag Setter
 			Set
-			  mFirstVisibleLine = Clamp(value, 0, Lines.LastIndex)
+			  mFirstVisibleLine = Clamp(value, 0, Lines.LastIndex - mMaxVisibleLines + 1)
 			  NeedsFullRedraw = True
 			  
 			End Set
