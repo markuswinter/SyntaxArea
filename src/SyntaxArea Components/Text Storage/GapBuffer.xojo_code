@@ -85,6 +85,18 @@ Implements ITextStorage
 		End Sub
 	#tag EndMethod
 
+	#tag Method, Flags = &h21, Description = 547275652069662060636861726020697320616C7068616E756D657269632E
+		Private Function IsAlphanumeric(char As String) As Boolean
+		  /// True if `char` is alphanumeric.
+		  ///
+		  /// Assumes `char` is a single character.
+		  /// Not exhaustive. Considers a character alphanumeric if it is *not* in the `NonAlphaCharacters` dictionary.
+		  
+		  Return Not NonAlphaCharacters.HasKey(char)
+		  
+		End Function
+	#tag EndMethod
+
 	#tag Method, Flags = &h0, Description = 546865206E756D626572206F66206368617261637465727320696E2073746F726167652E
 		Function Length() As Integer
 		  /// The number of characters in storage.
@@ -163,23 +175,48 @@ Implements ITextStorage
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 52657475726E7320746865206F6666736574206F6620746865207374617274206F662074686520776F7264206265666F726520606F6666736574602E
-		Function PreviousWordStart(offset As Integer) As Integer
-		  /// Returns the offset of the start of the word before `offset`.
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206F6666736574206F6620746865207374617274206F662074686520776F7264206265666F726520606361726574506F73602E
+		Function PreviousWordStart(caretPos As Integer) As Integer
+		  /// Returns the offset of the start of the word before `caretPos`.
 		  ///
 		  /// Part of the `ITextStorage` interface.
-		  
-		  #Pragma Warning "BUG: Not quite right"
+		  ///
+		  /// `caretPos` points immediately before the character at offset `caretPos`.
 		  
 		  // Bounds check.
-		  If offset < 0 Or offset > Length Then
+		  If caretPos < 0 Or caretPos > Length Then
 		    Raise New OutOfBoundsException("`offset` is out of bounds.")
 		  End If
 		  
-		  // Find the first non-alphanumeric character.
-		  For i As Integer = offset - 1 DownTo 0
-		    If NonAlphaCharacters.HasKey(CharacterAt(i)) Then
-		      Return i
+		  // Case 1: At the start of the text.
+		  If caretPos = 0 Then Return 0
+		  
+		  // Case 2: At the start of a line. Move back one character.
+		  If CharacterAt(caretPos - 1) = EndOfLine.UNIX Then
+		    Return caretPos - 1
+		  End If
+		  
+		  // Case 3: The caret is at the end of a word.
+		  If Not IsAlphanumeric(CharacterAt(caretPos)) And IsAlphanumeric(CharacterAt(caretPos - 1)) Then
+		    // Find the beginning of *this* word.
+		    For i As Integer = caretPos - 1 DownTo 0
+		      If Not IsAlphanumeric(CharacterAt(i)) Then
+		        Return i + 1
+		      End If
+		    Next i
+		    Return 0
+		  End If
+		  
+		  // Everything else.
+		  // Find the nearest preceding alphanumeric character and keep backtracking from there until we hit a
+		  // non-alphanumeric character.
+		  For i As Integer = caretPos - 1 DownTo 0
+		    If IsAlphanumeric(CharacterAt(i)) Then
+		      For j As Integer = i DownTo 0
+		        If Not IsAlphanumeric(CharacterAt(j)) Then
+		          Return j + 1
+		        End If
+		      Next j
 		    End If
 		  Next i
 		  
