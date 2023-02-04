@@ -105,6 +105,39 @@ Implements ITextStorage
 		End Function
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 52657475726E7320746865206F6666736574206F662074686520656E64206F662074686520776F726420616674657220606361726574506F73602E
+		Function NextWordEnd(caretPos As Integer) As Integer
+		  /// Returns the offset of the end of the word after `caretPos`.
+		  ///
+		  /// Part of the `ITextStorage` interface.
+		  /// `caretPos` points immediately before the character at offset `caretPos`.
+		  
+		  // Bounds check.
+		  If caretPos < 0 Or caretPos > Length Then
+		    Raise New OutOfBoundsException("`offset` is out of bounds.")
+		  End If
+		  
+		  // Cache the length as it's computed.
+		  Var limit As Integer = Length
+		  
+		  // At the end of the text?
+		  If caretPos = limit Then Return limit
+		  
+		  For i As Integer = caretPos To limit
+		    If IsAlphanumeric(CharacterAt(i)) Then
+		      For j As Integer = i + 1 To limit
+		        If Not IsAlphanumeric(CharacterAt(j)) Then
+		          Return j
+		        End If
+		      Next j
+		    End If
+		  Next i
+		  
+		  Return limit
+		  
+		End Function
+	#tag EndMethod
+
 	#tag Method, Flags = &h21, Description = 52657475726E7320612064696374696F6E61727920636F6E7461696E696E672061206E6F6E2D65786861757374697665206C697374206F66206E6F6E2D616C7068616E756D6572696320636861726163746572732E
 		Private Function NonAlphaCharactersDictionary() As Dictionary
 		  /// Returns a dictionary containing a non-exhaustive list of non-alphanumeric characters.

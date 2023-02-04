@@ -59,6 +59,11 @@ Inherits NSScrollViewCanvas
 		  Case CmdMoveWordLeft
 		    Var newPos As Integer = If(TextSelected, mSelectionStart, TextStorage.PreviousWordStart(mSelectionStart))
 		    ChangeSelection(newPos, 0, True)
+		    
+		  Case CmdMoveWordRight
+		    Var newPos As Integer = If(TextSelected, SelectionEnd, TextStorage.NextWordEnd(mSelectionStart))
+		    ChangeSelection(newPos, 0, True)
+		    
 		  End Select
 		  
 		  // Return True to prevent the event from propagating.
