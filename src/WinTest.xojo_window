@@ -32,7 +32,6 @@ Begin DesktopWindow WinTest
       CaretBlinkPeriod=   500
       CaretColor      =   &cFFFFFF00
       CaretColumn     =   0
-      CaretPosition   =   0
       CaretType       =   ""
       ColumnsPerIndent=   2
       CurrentLineHighlightColor=   &c1C1D1E00
@@ -46,7 +45,7 @@ Begin DesktopWindow WinTest
       HasLeftBorder   =   True
       HasRightBorder  =   True
       HasTopBorder    =   True
-      Height          =   680
+      Height          =   568
       HighlightCurrentLine=   True
       Index           =   -2147483648
       InitialParent   =   ""
@@ -182,6 +181,84 @@ Begin DesktopWindow WinTest
       Visible         =   True
       Width           =   349
    End
+   Begin DesktopTextArea TextToInsert
+      AllowAutoDeactivate=   True
+      AllowFocusRing  =   True
+      AllowSpellChecking=   True
+      AllowStyledText =   True
+      AllowTabs       =   False
+      BackgroundColor =   &cFFFFFF
+      Bold            =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Format          =   ""
+      HasBorder       =   True
+      HasHorizontalScrollbar=   False
+      HasVerticalScrollbar=   True
+      Height          =   100
+      HideSelection   =   True
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   20
+      LineHeight      =   0.0
+      LineSpacing     =   1.0
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   True
+      LockRight       =   False
+      LockTop         =   False
+      MaximumCharactersAllowed=   0
+      Multiline       =   True
+      ReadOnly        =   False
+      Scope           =   0
+      TabIndex        =   3
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Text            =   ""
+      TextAlignment   =   0
+      TextColor       =   &c000000
+      Tooltip         =   ""
+      Top             =   600
+      Transparent     =   False
+      Underline       =   False
+      UnicodeMode     =   1
+      ValidationMask  =   ""
+      Visible         =   True
+      Width           =   698
+   End
+   Begin DesktopButton ButtonInsertText
+      AllowAutoDeactivate=   True
+      Bold            =   False
+      Cancel          =   False
+      Caption         =   "Insert Text"
+      Default         =   False
+      Enabled         =   True
+      FontName        =   "System"
+      FontSize        =   0.0
+      FontUnit        =   0
+      Height          =   20
+      Index           =   -2147483648
+      Italic          =   False
+      Left            =   730
+      LockBottom      =   True
+      LockedInPosition=   False
+      LockLeft        =   False
+      LockRight       =   True
+      LockTop         =   False
+      MacButtonStyle  =   0
+      Scope           =   0
+      TabIndex        =   4
+      TabPanelIndex   =   0
+      TabStop         =   True
+      Tooltip         =   ""
+      Top             =   680
+      Transparent     =   False
+      Underline       =   False
+      Visible         =   True
+      Width           =   89
+   End
 End
 #tag EndDesktopWindow
 
@@ -225,6 +302,27 @@ End
 		  s.Add("SelStart: " + Editor.SelectionStart.ToString)
 		  
 		  Info.Text = String.FromArray(s, EndOfLine)
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events TextToInsert
+	#tag Event
+		Sub TextChanged()
+		  If Me.Text.Length = 0 Then
+		    ButtonInsertText.Enabled = False
+		  Else
+		    ButtonInsertText.Enabled = True
+		  End If
+		  
+		End Sub
+	#tag EndEvent
+#tag EndEvents
+#tag Events ButtonInsertText
+	#tag Event
+		Sub Pressed()
+		  Editor.Insert(TextToInsert.Text, True)
+		  TextToInsert.Text = ""
+		  
 		End Sub
 	#tag EndEvent
 #tag EndEvents

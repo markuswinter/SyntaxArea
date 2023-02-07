@@ -16,67 +16,85 @@ Protected Class LineManager
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h21, Description = 41646A7573747320746865207374617274206F6666736574206F66206576657279206C696E652066726F6D206066697273744C696E65496E646578602028696E636C75736976652920756E74696C2074686520656E64206F662074686520646F63756D656E74206279206064656C7461602E
-		Private Sub FixStartOffsets(firstLineIndex As Integer, delta As Integer)
-		  /// Adjusts the start offset of every line from `firstLineIndex` (inclusive) until the end of the document by `delta`.
+	#tag Method, Flags = &h21, Description = 41646A7573747320746865207374617274206F6666736574206F66206576657279206C696E652066726F6D206066697273744C696E65496E646578602028696E636C75736976652920756E74696C2074686520656E64206F662074686520646F63756D656E74206279206064656C74615374617274602E204F7074696F6E616C6C792061646A757374732074686520696E646578206F662065616368206C696E65206279206064656C7461496E646578602E
+		Private Sub FixOffsets(firstLineIndex As Integer, deltaStart As Integer, deltaIndex As Integer = 0)
+		  /// Adjusts the start offset of every line from `firstLineIndex` (inclusive) until the end of the document 
+		  /// by `deltaStart`. Optionally adjusts the index of each line by `deltaIndex`.
 		  
 		  Var linesLastIndex As Integer = mLines.LastIndex
 		  For i As Integer = firstLineIndex To linesLastIndex
-		    mLines(i).Start = mLines(i).Start + delta
+		    mLines(i).Start = mLines(i).Start + deltaStart
+		    If deltaIndex <> 0 Then
+		      mLines(i).Index = mLines(i).Index + deltaIndex
+		    End If
 		  Next i
 		  
 		End Sub
 	#tag EndMethod
 
-	#tag Method, Flags = &h0, Description = 496E73657274732060736020617420606F6666736574602E20417373756D657320616E79206E65776C696E65206368617261637465727320696E206073602068617665206265656E207374616E646172646973656420746F20554E49582E
-		Sub Insert(offset As Integer, s As String)
+	#tag Method, Flags = &h21, Description = 496E73657274732060736020617420606F6666736574602E20417373756D657320616E79206E65776C696E65206368617261637465727320696E206073602068617665206265656E207374616E646172646973656420746F20554E49582E
+		Private Sub Insert(offset As Integer, s As String)
 		  /// Inserts `s` at `offset`.
 		  /// Assumes any newline characters in `s` have been standardised to UNIX.
 		  
 		  // Get the index of the line containing `offset`.
 		  Var originalLineIndex As Integer = LineIndexForOffset(offset)
-		  Var line As TextLine = mLines(originalLineIndex)
+		  Var originalLine As TextLine = mLines(originalLineIndex)
 		  
 		  // Cache the length of the current longest line in case we modify it.
 		  Var longestLineLength As Integer = mLongestLine.ColumnLength
 		  
-		  // Cache the length of the string.
+		  // Cache the length of the string we're inserting.
 		  Var sLength As Integer = s.Length
 		  
+		  Var shouldCheckLineLength As Boolean = True
+		  
+		  // ======================
+		  // LINE BREAK
+		  // ======================
 		  If sLength = 1 And s = EndOfLine.UNIX Then
 		    // Common case: Insert a single newline at `offset` by breaking the line at `offset`
 		    // and inserting a new line with the characters following the break.
-		    Var newLineLength As Integer = line.Finish - offset
-		    line.Length = offset - line.Start
+		    Var newLineLength As Integer = originalLine.Finish - offset
+		    originalLine.Length = offset - originalLine.Start
 		    mLines.AddAt(originalLineIndex + 1, New TextLine(offset + 1, newLineLength, Self, originalLineIndex + 1))
 		    If Editor.WordWrap Then
 		      #Pragma Warning "TODO: Recompute lines"
 		    Else
-		      FixStartOffsets(originalLineIndex + 2, newLineLength)
+		      FixOffsets(originalLineIndex + 2, newLineLength)
 		    End If
 		    
 		  ElseIf Not s.Contains(EndOfLine.UNIX) Then
-		    // Insert text only on this line. 
+		    // ======================
+		    // INSERT SIMPLE TEXT
+		    // ======================
+		    // We're inserting text only on this line. 
 		    // We just need to increase the length of the affected line and fix the offsets of subsequent lines.
-		    line.Length = line.Length + sLength
+		    originalLine.Length = originalLine.Length + sLength
 		    If Editor.WordWrap Then
 		      #Pragma Warning "TODO: Recompute lines"
 		    Else
-		      FixStartOffsets(originalLineIndex + 1, sLength)
+		      FixOffsets(originalLineIndex + 1, sLength)
 		    End If
 		  Else
+		    // ======================
+		    // INSERT MULTIPLE LINES
+		    // ======================
 		    // Maximum effort. The string contains at least one new line.
-		    // Split the string into parts based on newlines.
-		    #Pragma Warning "TODO"
-		    Break
+		    // Re-compute all lines beginning at the line that contains `offset`.
+		    RecomputeLines(originalLineIndex)
+		    shouldCheckLineLength = False
 		  End If
 		  
 		  // Has the longest line changed?
-		  If line.ColumnLength > longestLineLength Then
-		    mLongestLine = line
+		  If shouldCheckLineLength Then
+		    If originalLine.ColumnLength > longestLineLength Then
+		      mLongestLine = originalLine
+		      Editor.LongestLineChanged = True
+		    End If
+		  Else
 		    Editor.LongestLineChanged = True
 		  End If
-		  
 		End Sub
 	#tag EndMethod
 
@@ -131,6 +149,98 @@ Protected Class LineManager
 		  Return low
 		  
 		End Function
+	#tag EndMethod
+
+	#tag Method, Flags = &h21, Description = 5265636F6D707574657320746865206C696E657320626567696E6E696E67206174206C696E6520696E64657820607374617274496E646578602E205468697320697320616E20657870656E73697665206F7065726174696F6E2E
+		Private Sub RecomputeLines(startIndex As Integer)
+		  /// Recomputes the lines beginning at line index `startIndex`. This is an expensive operation.
+		  
+		  Var longestLength As Integer
+		  
+		  // Remove the lines that need re-computing.
+		  If startIndex = 0 Then
+		    mLines.ResizeTo(-1)
+		    longestLength = 0
+		  Else
+		    For i As Integer = mLines.LastIndex DownTo startIndex
+		      mLines.RemoveAt(i)
+		    Next i
+		    For Each line As TextLine In mLines
+		      If line.Length > longestLength Then
+		        longestLength = line.Length
+		      End If
+		    Next line
+		  End If
+		  
+		  // Get the required contents.
+		  Var contents As String
+		  If startIndex = 0 Then
+		    contents = Storage.StringValue(0, Storage.Length)
+		  Else
+		    Var firstLineStartOffset As Integer = mLines(mLines.LastIndex).Finish + 1
+		    contents = Storage.StringValue(firstLineStartOffset, Storage.Length - firstLineStartOffset)
+		  End If
+		  
+		  // Split the contents into characters.
+		  Var chars() As String = contents.Split("")
+		  
+		  If Editor.WordWrap Then
+		    #Pragma Warning "TODO: Handle word wrapping"
+		    
+		  Else
+		    Var charsLastIndex As Integer = chars.LastIndex
+		    Var start As Integer
+		    For i As Integer = 0 To charsLastIndex
+		      start = i
+		      If chars(i) = EndOfLine.UNIX Then
+		        mLines.Add(New TextLine(start, i - start, Self, mLines.LastIndex + 1))
+		        // Is this now the longest line?
+		        If mLines(mLines.LastIndex).Length > longestLength Then
+		          longestLength = mLines(mLines.LastIndex).Length
+		          mLongestLine = mLines(mLines.LastIndex)
+		        End If
+		      Else
+		        For j As Integer = i + 1 To charsLastIndex
+		          If chars(j) = EndOfLine.UNIX Then
+		            mLines.Add(New TextLine(start, j - start, Self, mLines.LastIndex + 1))
+		            // Is this now the longest line?
+		            If mLines(mLines.LastIndex).Length > longestLength Then
+		              longestLength = mLines(mLines.LastIndex).Length
+		              mLongestLine = mLines(mLines.LastIndex)
+		            End If
+		            i = j
+		            Continue For i
+		          End If
+		        Next j
+		        mLines.Add(New TextLine(start, charsLastIndex - start + 1, Self, mLines.LastIndex + 1))
+		        // Is this now the longest line?
+		        If mLines(mLines.LastIndex).Length > longestLength Then
+		          longestLength = mLines(mLines.LastIndex).Length
+		          mLongestLine = mLines(mLines.LastIndex)
+		        End If
+		        Exit For i
+		      End If
+		    Next i
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5265706C61636573207468652074657874206265747765656E20606F66667365746020616E6420606F6666736574202B206C656E677468602077697468206073602E20417373756D657320616E79206E65776C696E65206368617261637465727320696E206073602068617665206265656E207374616E646172646973656420746F20554E49582E
+		Sub Replace(offset As Integer, length As Integer, s As String)
+		  /// Replaces the text between `offset` and `offset + length` with `s`.
+		  /// Assumes any newline characters in `s` have been standardised to UNIX.
+		  
+		  #Pragma Warning "TODO"
+		  
+		  // Handle elsewhere if this is an insertion rather than a replacement.
+		  If length = 0 Then
+		    Insert(offset, s)
+		    Return
+		  End If
+		  
+		  break
+		End Sub
 	#tag EndMethod
 
 

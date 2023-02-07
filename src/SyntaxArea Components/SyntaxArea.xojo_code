@@ -23,6 +23,23 @@ Inherits NSScrollViewCanvas
 		    InsertCharacter(EndOfLine.UNIX, Nil) // Standardise the newline to UNIX.
 		    
 		    // =========================================
+		    // DELETING
+		    // =========================================
+		  Case CmdDeleteBackward
+		    If TextSelected Then
+		      Replace(mSelectionStart, mSelectionLength, "")
+		    Else
+		      Replace(mSelectionStart - 1, 1, "")
+		    End If
+		    
+		  Case CmdDeleteForward
+		    If TextSelected Then
+		      Replace(mSelectionStart, mSelectionLength, "")
+		    Else
+		      Replace(mSelectionStart, 1, "")
+		    End If
+		    
+		    // =========================================
 		    // MOVING THE CARET
 		    // =========================================
 		  Case CmdMoveLeft, CmdMoveBackward
@@ -445,6 +462,25 @@ Inherits NSScrollViewCanvas
 		End Function
 	#tag EndMethod
 
+	#tag Method, Flags = &h0, Description = 496E736572747320607360206174206053656C656374696F6E5374617274602E204966207465787420697320616C72656164792073656C656374656420696E2074686520656469746F72207468656E2069742077696C6C206265207265706C616365642E2042792064656661756C742C207374616E646172646973657320616E79206E65776C696E65206368617261637465727320746F20554E49582E20506173732046616C7365206966207468697320686173206265656E20646F6E65207072696F7220746F2063616C6C696E672074686973206D6574686F642E
+		Sub Insert(s As String, standardiseNewlines As Boolean = True)
+		  /// Inserts `s` at `SelectionStart`. If text is already selected in the editor then it will be replaced.
+		  /// By default, standardises any newline characters to UNIX. Pass False if this has been done prior to
+		  /// calling this method.
+		  
+		  If standardiseNewlines Then
+		    s = s.ReplaceLineEndings(EndOfLine.UNIX)
+		  End If
+		  
+		  If TextSelected Then
+		    Replace(mSelectionStart, mSelectionLength, s)
+		  Else
+		    Replace(mSelectionStart, 0, s)
+		  End If
+		  
+		End Sub
+	#tag EndMethod
+
 	#tag Method, Flags = &h21, Description = 496E73657274732061202A2A73696E676C652A2A2063686172616374657220606368617260206174207468652063757272656E7420636172657420706F736974696F6E2E20417373756D65732074686174206966206063686172602069732061206E65776C696E65207468656E20697473206265656E207374616E646172646973656420746F20554E49582E
 		Private Sub InsertCharacter(char As String, range As TextRange)
 		  /// Inserts a **single** character `char` at the current caret position.
@@ -459,16 +495,7 @@ Inherits NSScrollViewCanvas
 		    // popup to insert. Replace the character *before* the caret with `char`.
 		    #Pragma Warning "TODO"
 		  Else
-		    If TextSelected Then
-		      // Replace the selection and update the caret position.
-		      #Pragma Warning "TODO"
-		    Else
-		      // Insert the character at the current caret position.
-		      TextStorage.Insert(mSelectionStart, char)
-		      Lines.Insert(mSelectionStart, char)
-		      // Advance the caret.
-		      SelectionStart = SelectionStart + 1
-		    End If
+		    Replace(mSelectionStart, mSelectionLength, char, False)
 		  End If
 		  
 		  Redraw
@@ -633,6 +660,26 @@ Inherits NSScrollViewCanvas
 		  NeedsFullRedraw = True
 		  
 		  Refresh(True)
+		  
+		End Sub
+	#tag EndMethod
+
+	#tag Method, Flags = &h0, Description = 5265706C6163657320746865207465787420626567696E6E696E67206174206073746172746020666F7220606C656E6774686020636861726163746572732077697468206073602E20496620606C656E677468203D203060207468656E2060736020697320696E73657274656420617420607374617274602E2042792064656661756C742C207374616E646172646973657320616E79206E65776C696E6573206368617261637465727320696E20607360207769746820554E4958206F6E65732E20506173732046616C736520696620746869732068617320616C7265616479206265656E20646F6E65207072696F7220746F2063616C6C696E672074686973206D6574686F642E
+		Sub Replace(start As Integer, length As Integer, s As String, standardiseNewlines As Boolean = True)
+		  /// Replaces the text beginning at `start` for `length` characters with `s`.
+		  /// If `length = 0` then `s` is inserted at `start`.
+		  /// By default, standardises any newlines characters in `s` with UNIX ones. Pass False if this has already
+		  /// been done prior to calling this method.
+		  
+		  If standardiseNewlines Then
+		    s = s.ReplaceLineEndings(EndOfLine.UNIX)
+		  End If
+		  
+		  TextStorage.Replace(start, length, s)
+		  
+		  Lines.Replace(start, length, s)
+		  
+		  ChangeSelection(If(TextSelected, mSelectionStart, mSelectionStart + s.Length), 0, True)
 		  
 		End Sub
 	#tag EndMethod
